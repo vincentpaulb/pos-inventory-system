@@ -24,6 +24,24 @@ class UserController
         ]);
     }
 
+    public function profile(): void
+    {
+        require_auth();
+
+        $currentUser = auth_user();
+        $user = $this->users->find((int) $currentUser['id']);
+
+        if ($user === null) {
+            logout_user();
+            redirect('login');
+        }
+
+        view('users/profile', [
+            'title' => 'My Profile',
+            'user' => $user,
+        ]);
+    }
+
     public function store(): void
     {
         require_role('Admin');
@@ -113,5 +131,53 @@ class UserController
 
         flash('success', 'User deleted successfully.');
         redirect('users');
+    }
+
+    public function updateProfile(): void
+    {
+        require_auth();
+        verify_csrf();
+
+        $currentUser = auth_user();
+        $id = (int) $currentUser['id'];
+        $name = clean_input($_POST['name'] ?? '');
+        $username = clean_input($_POST['username'] ?? '');
+        $newPassword = $_POST['new_password'] ?? '';
+        $confirmPassword = $_POST['confirm_password'] ?? '';
+
+        if ($name === '' || $username === '') {
+            flash('error', 'Name and username are required.');
+            redirect('profile');
+        }
+
+        if ($this->users->usernameExists($username, $id)) {
+            flash('error', 'Username already exists.');
+            redirect('profile');
+        }
+
+        if ($newPassword !== '' || $confirmPassword !== '') {
+            if ($newPassword === '' || $confirmPassword === '') {
+                flash('error', 'Both password fields are required to change your password.');
+                redirect('profile');
+            }
+
+            if ($newPassword !== $confirmPassword) {
+                flash('error', 'New password and confirmation do not match.');
+                redirect('profile');
+            }
+
+            $this->users->resetPassword($id, $newPassword);
+            $this->logs->log($id, 'profile_password_update', 'Updated own account password.');
+        }
+
+        $this->users->updateProfile($id, $name, $username);
+
+        $_SESSION['user']['name'] = $name;
+        $_SESSION['user']['username'] = $username;
+
+        $this->logs->log($id, 'profile_update', 'Updated own account details.');
+
+        flash('success', 'Profile updated successfully.');
+        redirect('profile');
     }
 }

@@ -18,9 +18,21 @@ class SupplierController
     public function index(): void
     {
         require_auth();
+
+        $search = clean_input($_GET['search'] ?? '');
+        $suppliers = $this->suppliers->all($search);
+
+        if (is_ajax_request()) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            echo json_encode($suppliers, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+
         view('suppliers/index', [
             'title' => 'Suppliers',
-            'suppliers' => $this->suppliers->all(),
+            'search' => $search,
+            'suppliers' => $suppliers,
         ]);
     }
 

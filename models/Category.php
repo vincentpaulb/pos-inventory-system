@@ -5,9 +5,25 @@ require_once BASE_PATH . '/models/BaseModel.php';
 
 class Category extends BaseModel
 {
-    public function all(): array
+    public function all(string $search = ''): array
     {
-        return $this->db->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
+        $search = trim($search);
+
+        if ($search === '') {
+            return $this->db->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT *
+            FROM categories
+            WHERE name LIKE :search_name
+            ORDER BY name ASC
+        ");
+        $stmt->execute([
+            'search_name' => '%' . $search . '%',
+        ]);
+
+        return $stmt->fetchAll();
     }
 
     public function find(int $id): ?array

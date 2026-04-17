@@ -5,9 +5,31 @@ require_once BASE_PATH . '/models/BaseModel.php';
 
 class Supplier extends BaseModel
 {
-    public function all(): array
+    public function all(string $search = ''): array
     {
-        return $this->db->query("SELECT * FROM suppliers ORDER BY name ASC")->fetchAll();
+        $search = trim($search);
+
+        if ($search === '') {
+            return $this->db->query("SELECT * FROM suppliers ORDER BY name ASC")->fetchAll();
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT *
+            FROM suppliers
+            WHERE name LIKE :search_name
+               OR contact_person LIKE :search_contact
+               OR phone LIKE :search_phone
+               OR address LIKE :search_address
+            ORDER BY name ASC
+        ");
+        $stmt->execute([
+            'search_name' => '%' . $search . '%',
+            'search_contact' => '%' . $search . '%',
+            'search_phone' => '%' . $search . '%',
+            'search_address' => '%' . $search . '%',
+        ]);
+
+        return $stmt->fetchAll();
     }
 
     public function find(int $id): ?array

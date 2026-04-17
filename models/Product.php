@@ -17,11 +17,12 @@ class Product extends BaseModel
         $params = [];
 
         if ($search !== '') {
-            $sql .= " AND (p.name LIKE :search_name OR p.description LIKE :search_description OR p.barcode LIKE :search_barcode)";
+            $sql .= " AND (p.name LIKE :search_name OR p.description LIKE :search_description OR p.barcode LIKE :search_barcode OR p.unit_type LIKE :search_unit_type)";
             $searchTerm = '%' . $search . '%';
             $params['search_name'] = $searchTerm;
             $params['search_description'] = $searchTerm;
             $params['search_barcode'] = $searchTerm;
+            $params['search_unit_type'] = $searchTerm;
         }
 
         if ($categoryId !== '') {
@@ -39,7 +40,7 @@ class Product extends BaseModel
     public function allForPos(string $search = ''): array
     {
         $sql = "
-            SELECT p.id, p.name, p.barcode, p.selling_price, p.stock_quantity, c.name AS category_name
+            SELECT p.id, p.name, p.barcode, p.unit_type, p.selling_price, p.stock_quantity, c.name AS category_name
             FROM products p
             LEFT JOIN categories c ON c.id = p.category_id
             WHERE p.stock_quantity > 0
@@ -63,7 +64,7 @@ class Product extends BaseModel
     public function allForQuotation(string $search = ''): array
     {
         $sql = "
-            SELECT p.id, p.name, p.barcode, p.selling_price, p.stock_quantity, c.name AS category_name
+            SELECT p.id, p.name, p.barcode, p.unit_type, p.selling_price, p.stock_quantity, c.name AS category_name
             FROM products p
             LEFT JOIN categories c ON c.id = p.category_id
             WHERE 1=1
@@ -112,9 +113,9 @@ class Product extends BaseModel
     {
         $stmt = $this->db->prepare("
             INSERT INTO products
-            (name, category_id, description, buying_price, selling_price, stock_quantity, supplier_id, barcode)
+            (name, category_id, description, buying_price, selling_price, stock_quantity, supplier_id, barcode, unit_type)
             VALUES
-            (:name, :category_id, :description, :buying_price, :selling_price, :stock_quantity, :supplier_id, :barcode)
+            (:name, :category_id, :description, :buying_price, :selling_price, :stock_quantity, :supplier_id, :barcode, :unit_type)
         ");
         return $stmt->execute($data);
     }
@@ -131,7 +132,8 @@ class Product extends BaseModel
                 selling_price = :selling_price,
                 stock_quantity = :stock_quantity,
                 supplier_id = :supplier_id,
-                barcode = :barcode
+                barcode = :barcode,
+                unit_type = :unit_type
             WHERE id = :id
         ");
         return $stmt->execute($data);

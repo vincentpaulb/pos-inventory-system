@@ -48,15 +48,21 @@ $routes = [
     'users/update' => [UserController::class, 'update'],
     'users/reset-password' => [UserController::class, 'resetPassword'],
     'users/delete' => [UserController::class, 'delete'],
+    'profile' => [UserController::class, request_method() === 'POST' ? 'updateProfile' : 'profile'],
 
     'pos' => [PosController::class, 'index'],
     'pos/search' => [PosController::class, 'searchProducts'],
     'pos/checkout' => [PosController::class, 'checkout'],
     'pos/receipt' => [PosController::class, 'receipt'],
+    'pos/void' => [PosController::class, 'voidSale'],
+    'pos/delete' => [PosController::class, 'deleteSale'],
 
     'quotations' => [QuotationController::class, 'index'],
     'quotations/search' => [QuotationController::class, 'searchProducts'],
     'quotations/store' => [QuotationController::class, 'store'],
+    'quotations/edit' => [QuotationController::class, 'edit'],
+    'quotations/update' => [QuotationController::class, 'update'],
+    'quotations/delete' => [QuotationController::class, 'delete'],
     'quotations/view' => [QuotationController::class, 'view'],
 
     'reports' => [ReportController::class, 'index'],

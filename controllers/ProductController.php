@@ -8,6 +8,8 @@ require_once BASE_PATH . '/models/ActivityLog.php';
 
 class ProductController
 {
+    private const UNIT_TYPES = ['PC', 'Set', 'Pair', 'Unit', 'Assembly'];
+
     private Product $products;
     private Category $categories;
     private Supplier $suppliers;
@@ -26,10 +28,18 @@ class ProductController
         require_auth();
         $search = clean_input($_GET['search'] ?? '');
         $categoryId = clean_input($_GET['category_id'] ?? '');
+        $products = $this->products->all($search, $categoryId);
+
+        if (is_ajax_request()) {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+            echo json_encode($products, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            exit;
+        }
 
         view('products/index', [
             'title' => 'Products',
-            'products' => $this->products->all($search, $categoryId),
+            'products' => $products,
             'categories' => $this->categories->all(),
             'search' => $search,
             'categoryId' => $categoryId,
@@ -44,6 +54,7 @@ class ProductController
             'title' => 'Add Product',
             'categories' => $this->categories->all(),
             'suppliers' => $this->suppliers->all(),
+            'unitTypes' => self::UNIT_TYPES,
         ]);
     }
 
@@ -62,6 +73,7 @@ class ProductController
             'stock_quantity' => (int) ($_POST['stock_quantity'] ?? 0),
             'supplier_id' => $supplierId > 0 ? $supplierId : null,
             'barcode' => clean_input($_POST['barcode'] ?? ''),
+            'unit_type' => clean_input($_POST['unit_type'] ?? 'PC'),
         ];
 
         set_old($_POST);
@@ -93,6 +105,9 @@ class ProductController
 
         if ($data['supplier_id'] !== null && !$this->suppliers->find((int) $data['supplier_id'])) {
             $errors['supplier_id'] = 'Selected supplier is invalid.';
+        }
+        if (!in_array($data['unit_type'], self::UNIT_TYPES, true)) {
+            $errors['unit_type'] = 'Selected unit type is invalid.';
         }
 
         if ($errors) {
@@ -128,6 +143,7 @@ class ProductController
             'product' => $product,
             'categories' => $this->categories->all(),
             'suppliers' => $this->suppliers->all(),
+            'unitTypes' => self::UNIT_TYPES,
         ]);
     }
 
@@ -148,10 +164,42 @@ class ProductController
             'stock_quantity' => (int) ($_POST['stock_quantity'] ?? 0),
             'supplier_id' => $supplierId > 0 ? $supplierId : null,
             'barcode' => clean_input($_POST['barcode'] ?? ''),
+            'unit_type' => clean_input($_POST['unit_type'] ?? 'PC'),
         ];
 
+        $errors = validate_required(
+            [
+                'name' => $data['name'],
+                'category_id' => (string) $data['category_id'],
+                'selling_price' => (string) $data['selling_price'],
+                'stock_quantity' => (string) $data['stock_quantity'],
+            ],
+            [
+                'name' => 'Product name',
+                'category_id' => 'Category',
+                'selling_price' => 'Selling price',
+                'stock_quantity' => 'Stock quantity',
+            ]
+        );
+
+        if ($error = validate_positive_number('buying_price', $data['buying_price'], 'Buying price')) {
+            $errors['buying_price'] = $error;
+        }
+        if ($error = validate_positive_number('selling_price', $data['selling_price'], 'Selling price')) {
+            $errors['selling_price'] = $error;
+        }
+        if ($error = validate_integer('stock_quantity', $data['stock_quantity'], 'Stock quantity')) {
+            $errors['stock_quantity'] = $error;
+        }
         if ($data['supplier_id'] !== null && !$this->suppliers->find((int) $data['supplier_id'])) {
-            flash('error', 'Selected supplier is invalid.');
+            $errors['supplier_id'] = 'Selected supplier is invalid.';
+        }
+        if (!in_array($data['unit_type'], self::UNIT_TYPES, true)) {
+            $errors['unit_type'] = 'Selected unit type is invalid.';
+        }
+
+        if ($errors) {
+            flash('error', implode(' ', $errors));
             redirect('products/edit?id=' . $id);
         }
 

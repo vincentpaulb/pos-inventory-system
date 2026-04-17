@@ -1,12 +1,12 @@
 <?php
-$jsProducts = json_encode(array_map(function($p) {
+$jsProducts = json_encode(array_map(function ($p) {
     return [
-        'id'    => (int) $p['id'],
-        'name'  => (string) $p['name'],
+        'id' => (int) $p['id'],
+        'name' => (string) $p['name'],
         'price' => (float) $p['selling_price'],
         'stock' => (int) $p['stock_quantity'],
-        'cat'   => (string) ($p['category_name'] ?? ''),
-        'code'  => (string) ($p['barcode'] ?? ''),
+        'cat' => (string) ($p['category_name'] ?? ''),
+        'code' => (string) ($p['barcode'] ?? ''),
     ];
 }, $products), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE);
 ?>
@@ -14,21 +14,83 @@ $jsProducts = json_encode(array_map(function($p) {
 <div class="page-header">
     <div class="page-header-left">
         <h1 class="page-header-title">Quotation</h1>
-        <p class="page-header-desc">Create customer quotations for parts with an optional Service Repair line item.</p>
+        <p class="page-header-desc">Create customer quotations for parts with an optional service repair line item.</p>
     </div>
     <div class="page-header-actions">
-        <div class="topbar-chip">🧾 <?= count($quotations) ?> recent quotations</div>
+        <div class="topbar-chip" id="quotationCountChip"><i class="fas fa-receipt"></i> <?= count($quotations) ?> recent quotations</div>
+        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#quotationBuilderModal">
+            <i class="fas fa-plus"></i> New Quotation
+        </button>
     </div>
 </div>
 
-<div class="row g-4">
-    <div class="col-xl-8">
-        <div class="card mb-4">
-            <div class="card-header">
-                <span>👤 Customer & Quotation Details</span>
-                <span class="small-muted">Fill in customer info, select service option, then add products below.</span>
+<div class="card">
+    <div class="card-header">
+        <span><i class="fas fa-clock"></i> Recent Quotations</span>
+        <span class="badge bg-soft-primary" id="quotationCountBadge"><?= count($quotations) ?> records</span>
+    </div>
+    <div class="card-body" style="border-bottom:1px solid var(--border)">
+        <form class="row g-2 align-items-end" method="GET" action="<?= e(base_url('quotations')) ?>" data-live-search="true" data-live-render="quotations">
+            <div class="col-md-4">
+                <label class="form-label">Search Quotations</label>
+                <input type="text" name="search" class="form-control" placeholder="Search by quote no., customer, or contact" value="<?= e($search ?? '') ?>">
             </div>
-            <div class="card-body">
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Quote #</th>
+                    <th>Customer</th>
+                    <th>Total</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="quotationTableBody" data-base-url="<?= e(base_url()) ?>" data-csrf-token="<?= e(csrf_token()) ?>">
+                <?php foreach ($quotations as $quote): ?>
+                    <tr>
+                        <td>
+                            <div><span class="badge bg-soft-primary"><?= e($quote['quote_no']) ?></span></div>
+                            <div class="small-muted"><?= e(format_date($quote['created_at'])) ?></div>
+                        </td>
+                        <td>
+                            <div style="font-weight:700;font-size:.82rem"><?= e($quote['customer_name']) ?></div>
+                            <div class="small-muted"><?= e($quote['service_option'] === 'with_service_repair' ? 'With Service Repair' : 'Without Service Repair') ?></div>
+                        </td>
+                        <td><strong><?= e(format_currency($quote['total_amount'])) ?></strong></td>
+                        <td>
+                            <div class="action-group">
+                                <a class="btn btn-sm btn-outline-primary btn-icon" href="<?= e(base_url('quotations/view?id=' . (int) $quote['id'])) ?>" title="View quotation" aria-label="View quotation"><i class="fas fa-eye"></i></a>
+                                <a class="btn btn-sm btn-outline-success btn-icon" href="<?= e(base_url('quotations/edit?id=' . (int) $quote['id'])) ?>" title="Edit quotation" aria-label="Edit quotation"><i class="fas fa-pen"></i></a>
+                                <form method="POST" action="<?= e(base_url('quotations/delete')) ?>" class="js-confirm-form" data-confirm-message="Delete this quotation?" data-confirm-button="Delete">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="id" value="<?= (int) $quote['id'] ?>">
+                                    <button class="btn btn-sm btn-outline-danger btn-icon" title="Delete quotation" aria-label="Delete quotation"><i class="fas fa-trash-alt"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$quotations): ?>
+                    <tr><td colspan="4" class="text-center text-muted py-4" style="font-size:.82rem">No quotations yet.</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade quotation-modal" id="quotationBuilderModal" tabindex="-1" aria-labelledby="quotationBuilderLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h4 mb-1" id="quotationBuilderLabel">Create Quotation</h2>
+                    <div class="small-muted">Fill in customer details, add products, and save the quotation.</div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
                 <form method="POST" action="<?= e(base_url('quotations/store')) ?>" id="quotationForm">
                     <?= csrf_field() ?>
                     <input type="hidden" name="items" id="quotationItemsInput" value="[]">
@@ -60,7 +122,7 @@ $jsProducts = json_encode(array_map(function($p) {
                         <div class="col-md-4">
                             <label class="form-label">Service Repair Fee</label>
                             <div class="input-group">
-                                <span class="input-group-text">₱</span>
+                                <span class="input-group-text">&#8369;</span>
                                 <input type="number" min="0" step="0.01" class="form-control" id="serviceFeeInput" name="service_fee" value="0.00" disabled>
                             </div>
                         </div>
@@ -74,11 +136,11 @@ $jsProducts = json_encode(array_map(function($p) {
                         </div>
                     </div>
 
-                    <hr style="border-color:var(--border);margin:24px 0">
+                    <hr style="border-color:var(--border);margin:18px 0">
 
-                    <div class="row g-4">
+                    <div class="row g-3 quotation-modal-workspace">
                         <div class="col-lg-7">
-                            <div class="card-soft h-100">
+                            <div class="card-soft quotation-product-panel">
                                 <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
                                     <div>
                                         <div style="font-weight:700">Select Products</div>
@@ -87,12 +149,12 @@ $jsProducts = json_encode(array_map(function($p) {
                                     <div class="badge bg-soft-primary"><?= count($products) ?> products loaded</div>
                                 </div>
                                 <input type="text" id="quotationSearch" class="form-control mb-3" placeholder="Search parts...">
-                                <div id="quotationProductGrid" class="product-grid"></div>
+                                <div id="quotationProductGrid" class="product-grid quotation-product-grid"></div>
                             </div>
                         </div>
 
                         <div class="col-lg-5">
-                            <div class="card-soft h-100 d-flex flex-column" style="gap:14px">
+                            <div class="card-soft d-flex flex-column quotation-cart-panel" style="gap:12px">
                                 <div class="d-flex justify-content-between align-items-center gap-2">
                                     <div>
                                         <div style="font-weight:700">Quotation Items</div>
@@ -101,7 +163,7 @@ $jsProducts = json_encode(array_map(function($p) {
                                     <span class="badge bg-soft-primary" id="quotationCartCount">0 items</span>
                                 </div>
 
-                                <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:90px;background:var(--surface)">
+                                <div class="quotation-cart-table-wrap" style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:90px;background:var(--surface)">
                                     <table class="table mb-0 align-middle" style="font-size:.78rem">
                                         <thead>
                                             <tr>
@@ -116,19 +178,19 @@ $jsProducts = json_encode(array_map(function($p) {
                                     </table>
                                 </div>
 
-                                <div class="card-soft" style="background:var(--surface)">
+                                <div class="card-soft quotation-total-card" style="background:var(--surface)">
                                     <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:6px">
                                         <span>Parts Subtotal</span>
-                                        <strong id="quotationPartsSubtotal">₱0.00</strong>
+                                        <strong id="quotationPartsSubtotal">&#8369;0.00</strong>
                                     </div>
                                     <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:6px">
                                         <span>Service Repair</span>
-                                        <strong id="quotationServiceAmount">₱0.00</strong>
+                                        <strong id="quotationServiceAmount">&#8369;0.00</strong>
                                     </div>
                                     <hr style="border-color:var(--border);margin:8px 0">
                                     <div style="display:flex;justify-content:space-between;font-size:.98rem">
                                         <span style="font-weight:800">Quotation Total</span>
-                                        <strong id="quotationGrandTotal" style="color:var(--primary);font-size:1.15rem">₱0.00</strong>
+                                        <strong id="quotationGrandTotal" style="color:var(--primary);font-size:1.15rem">&#8369;0.00</strong>
                                     </div>
                                 </div>
 
@@ -137,46 +199,6 @@ $jsProducts = json_encode(array_map(function($p) {
                         </div>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-xl-4">
-        <div class="card h-100">
-            <div class="card-header">
-                <span>🕘 Recent Quotations</span>
-                <span class="badge bg-soft-primary"><?= count($quotations) ?> records</span>
-            </div>
-            <div class="table-responsive">
-                <table class="table mb-0">
-                    <thead>
-                        <tr>
-                            <th>Quote #</th>
-                            <th>Customer</th>
-                            <th>Total</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($quotations as $quote): ?>
-                            <tr>
-                                <td>
-                                    <div><span class="badge bg-soft-primary"><?= e($quote['quote_no']) ?></span></div>
-                                    <div class="small-muted"><?= e(format_date($quote['created_at'])) ?></div>
-                                </td>
-                                <td>
-                                    <div style="font-weight:700;font-size:.82rem"><?= e($quote['customer_name']) ?></div>
-                                    <div class="small-muted"><?= e($quote['service_option'] === 'with_service_repair' ? 'With Service Repair' : 'Without Service Repair') ?></div>
-                                </td>
-                                <td><strong><?= e(format_currency($quote['total_amount'])) ?></strong></td>
-                                <td><a class="btn btn-sm btn-outline-primary" href="<?= e(base_url('quotations/view?id=' . (int) $quote['id'])) ?>">View</a></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        <?php if (!$quotations): ?>
-                            <tr><td colspan="4" class="text-center text-muted py-4" style="font-size:.82rem">No quotations yet.</td></tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>
@@ -202,7 +224,7 @@ $jsProducts = json_encode(array_map(function($p) {
     var form = document.getElementById('quotationForm');
 
     function fmt(n) {
-        return '₱' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return '\u20b1' + Number(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function escHtml(str) {
@@ -272,7 +294,7 @@ $jsProducts = json_encode(array_map(function($p) {
                     '<td><input type="number" min="1" value="' + item.qty + '" data-idx="' + idx + '" class="quote-qty form-control form-control-sm" style="width:62px;font-size:.76rem;padding:.26rem .44rem"></td>' +
                     '<td style="white-space:nowrap">' + fmt(item.price) + '</td>' +
                     '<td style="font-weight:700;white-space:nowrap">' + fmt(item.price * item.qty) + '</td>' +
-                    '<td><button type="button" data-idx="' + idx + '" class="quote-rm btn btn-sm btn-outline-danger" style="padding:.2rem .46rem;line-height:1">×</button></td>';
+                    '<td><button type="button" data-idx="' + idx + '" class="quote-rm btn btn-sm btn-outline-danger" style="padding:.2rem .46rem;line-height:1">x</button></td>';
                 cartBody.appendChild(tr);
             });
         }

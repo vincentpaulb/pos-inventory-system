@@ -11,6 +11,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+date_default_timezone_set('Asia/Manila');
+
 define('DB_HOST', '127.0.0.1');
 define('DB_NAME', 'rb_heavy_inventory');
 define('DB_USER', 'root');

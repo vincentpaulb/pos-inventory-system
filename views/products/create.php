@@ -3,28 +3,37 @@
 <div class="page-header">
     <div class="page-header-left">
         <h1 class="page-header-title">Add New Product</h1>
-        <p class="page-header-desc">Create a new inventory item with category, supplier, pricing, barcode, and initial stock.</p>
+        <p class="page-header-desc">Create a new inventory item with category, supplier, unit type, pricing, barcode, and initial stock.</p>
     </div>
     <div class="page-header-actions">
-        <a class="btn btn-outline-secondary btn-sm" href="<?= e(base_url('products')) ?>">← Back to Inventory</a>
+        <a class="btn btn-outline-secondary btn-sm" href="<?= e(base_url('products')) ?>"><i class="fas fa-arrow-left"></i> Back to Inventory</a>
     </div>
 </div>
 
 <div class="card">
-    <div class="card-header">📦 Product Details</div>
+    <div class="card-header"><i class="fas fa-cube"></i> Product Details</div>
     <div class="card-body">
         <form method="POST" action="<?= e(base_url($action)) ?>">
             <?= csrf_field() ?>
             <div class="row g-4">
                 <div class="col-lg-8">
                     <div class="row g-3">
-                        <div class="col-md-8">
+                        <div class="col-md-6">
                             <label class="form-label">Product Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="name" required value="<?= e($product['name'] ?? (string) old('name')) ?>" placeholder="e.g. Heavy Duty Brake Pad">
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label">Barcode</label>
                             <input type="text" class="form-control" name="barcode" value="<?= e($product['barcode'] ?? (string) old('barcode')) ?>" placeholder="Optional">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Unit Type <span class="text-danger">*</span></label>
+                            <select class="form-select" name="unit_type" required>
+                                <?php $selectedUnitType = (string) ($product['unit_type'] ?? old('unit_type', 'PC')); ?>
+                                <?php foreach ($unitTypes as $unitType): ?>
+                                    <option value="<?= e($unitType) ?>" <?= $selectedUnitType === $unitType ? 'selected' : '' ?>><?= e($unitType) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Category <span class="text-danger">*</span></label>
@@ -53,7 +62,7 @@
 
                 <div class="col-lg-4">
                     <div class="card-soft">
-                        <div class="section-title">💰 Pricing &amp; Stock</div>
+                        <div class="section-title"><i class="fas fa-money-bill-wave"></i> Pricing &amp; Stock</div>
                         <div class="mb-3">
                             <label class="form-label">Buying Price</label>
                             <div class="input-group">
@@ -71,7 +80,7 @@
                         <div>
                             <label class="form-label">Stock Quantity <span class="text-danger">*</span></label>
                             <input type="number" min="0" class="form-control" name="stock_quantity" required value="<?= e((string)($product['stock_quantity'] ?? old('stock_quantity', '0'))) ?>">
-                            <div class="form-hint">Starting quantity available for sale.</div>
+                            <div class="form-hint">Starting quantity available for sale, based on the selected unit type.</div>
                         </div>
                     </div>
                 </div>

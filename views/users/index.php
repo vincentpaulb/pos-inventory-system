@@ -8,7 +8,7 @@
 <div class="row g-4">
     <div class="col-lg-4">
         <div class="card">
-            <div class="card-header">👤 Create User</div>
+            <div class="card-header"><i class="fas fa-user-plus"></i> Create User</div>
             <div class="card-body">
                 <form method="POST" action="<?= e(base_url('users/store')) ?>">
                     <?= csrf_field() ?>
@@ -31,7 +31,7 @@
                             <option value="Cashier">Cashier</option>
                         </select>
                     </div>
-                    <button class="btn btn-primary w-100">Create User</button>
+                    <button class="btn btn-primary w-100"><i class="fas fa-save"></i> Create User</button>
                 </form>
             </div>
         </div>
@@ -40,7 +40,7 @@
     <div class="col-lg-8">
         <div class="card">
             <div class="card-header">
-                <span>👥 User Accounts</span>
+                <span><i class="fas fa-users"></i> User Accounts</span>
                 <span class="badge bg-soft-primary"><?= count($users) ?> users</span>
             </div>
             <div class="table-responsive">
@@ -60,13 +60,13 @@
                             </td>
                             <td class="small-muted"><?= e(format_date($user['created_at'])) ?></td>
                             <td>
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#user<?= (int) $user['id'] ?>">Edit</button>
-                                    <button class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#pass<?= (int) $user['id'] ?>">Password</button>
-                                    <form method="POST" action="<?= e(base_url('users/delete')) ?>" onsubmit="return confirm('Delete this user?')">
+                                <div class="action-group">
+                                    <button class="btn btn-sm btn-outline-success btn-icon" data-bs-toggle="collapse" data-bs-target="#user<?= (int) $user['id'] ?>" title="Edit user" aria-label="Edit user"><i class="fas fa-pen"></i></button>
+                                    <button class="btn btn-sm btn-outline-warning btn-icon" data-bs-toggle="collapse" data-bs-target="#pass<?= (int) $user['id'] ?>" title="Reset password" aria-label="Reset password"><i class="fas fa-key"></i></button>
+                                    <form method="POST" action="<?= e(base_url('users/delete')) ?>" class="js-confirm-form" data-confirm-message="Delete this user?" data-confirm-button="Delete">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
-                                        <button class="btn btn-sm btn-outline-danger">Delete</button>
+                                        <button class="btn btn-sm btn-outline-danger btn-icon" title="Delete user" aria-label="Delete user"><i class="fas fa-trash-alt"></i></button>
                                     </form>
                                 </div>
                             </td>

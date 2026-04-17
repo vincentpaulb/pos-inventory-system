@@ -18,6 +18,11 @@ function request_method(): string
     return strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 }
 
+function is_ajax_request(): bool
+{
+    return strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
+}
+
 function e(?string $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');

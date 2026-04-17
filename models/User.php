@@ -20,7 +20,7 @@ class User extends BaseModel
 
     public function find(int $id): ?array
     {
-        $stmt = $this->db->prepare("SELECT id, name, username, role FROM users WHERE id = :id LIMIT 1");
+        $stmt = $this->db->prepare("SELECT id, name, username, role, created_at FROM users WHERE id = :id LIMIT 1");
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch();
         return $row ?: null;
@@ -51,6 +51,21 @@ class User extends BaseModel
             'name' => $data['name'],
             'username' => $data['username'],
             'role' => $data['role'],
+            'id' => $id,
+        ]);
+    }
+
+    public function updateProfile(int $id, string $name, string $username): bool
+    {
+        $stmt = $this->db->prepare("
+            UPDATE users
+            SET name = :name, username = :username
+            WHERE id = :id
+        ");
+
+        return $stmt->execute([
+            'name' => $name,
+            'username' => $username,
             'id' => $id,
         ]);
     }

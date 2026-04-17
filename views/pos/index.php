@@ -1,13 +1,12 @@
 <?php
-/* Pre-encode product data as a safe JS array — avoids any quote/apostrophe issues in onclick */
-$jsProducts = json_encode(array_map(function($p) {
+$jsProducts = json_encode(array_map(function ($p) {
     return [
-        'id'    => (int)    $p['id'],
-        'name'  => (string) $p['name'],
-        'price' => (float)  $p['selling_price'],
-        'stock' => (int)    $p['stock_quantity'],
-        'cat'   => (string) ($p['category_name'] ?? ''),
-        'fmt'   => format_currency($p['selling_price']),
+        'id' => (int) $p['id'],
+        'name' => (string) $p['name'],
+        'price' => (float) $p['selling_price'],
+        'stock' => (int) $p['stock_quantity'],
+        'cat' => (string) ($p['category_name'] ?? ''),
+        'fmt' => format_currency($p['selling_price']),
     ];
 }, $products), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE);
 ?>
@@ -15,43 +14,82 @@ $jsProducts = json_encode(array_map(function($p) {
 <div class="page-header">
     <div class="page-header-left">
         <h1 class="page-header-title">Point of Sale</h1>
-        <p class="page-header-desc">Search products, build your cart, accept payment, and complete retail transactions.</p>
+        <p class="page-header-desc">Search inventory fast, build the cart, review VAT breakdown, and complete checkout with a cleaner cashier workflow.</p>
     </div>
     <div class="page-header-actions">
-        <div class="topbar-chip">🛍 <?= count($products) ?> products available</div>
+        <div class="topbar-chip"><i class="fas fa-shopping-bag"></i> <?= count($products) ?> products available</div>
+        <div class="topbar-chip"><i class="fas fa-receipt"></i> VAT ready</div>
     </div>
 </div>
 
+<section class="pos-shell">
 <div class="row g-4">
-    <!-- Product Search -->
     <div class="col-lg-7">
-        <div class="card h-100">
+        <div class="card pos-card h-100">
             <div class="card-header">
-                <span>🔍 Product Search</span>
-                <span class="small-muted">Click a product to add it to the cart</span>
+                <span><i class="fas fa-search"></i> Product Search</span>
+                <span class="small-muted">Tap a product card to add it to the cart instantly</span>
             </div>
-            <div class="card-body">
-                <input type="text" id="posSearch" class="form-control mb-3"
-                       placeholder="Search by product name or barcode..."
-                       autocomplete="off">
-                <div id="posGrid" class="product-grid"></div>
+            <div class="card-body pos-browser">
+                <div class="pos-search-wrap">
+                    <div class="pos-search-box">
+                        <i class="fas fa-magnifying-glass pos-search-icon"></i>
+                        <input
+                            type="text"
+                            id="posSearch"
+                            class="form-control pos-search-input"
+                            placeholder="Search by product name or barcode..."
+                            autocomplete="off"
+                        >
+                    </div>
+                    <div class="pos-search-meta">
+                        <span class="badge bg-soft-primary" id="posCatalogCount"><?= count($products) ?> products</span>
+                    </div>
+                </div>
+                <div id="posGrid" class="product-grid pos-product-grid"></div>
             </div>
         </div>
     </div>
 
-    <!-- Cart -->
     <div class="col-lg-5">
-        <div class="card h-100">
+        <div class="card pos-card pos-cart-card h-100">
             <div class="card-header">
-                <span>🛒 Cart</span>
+                <span><i class="fas fa-shopping-cart"></i> Cart</span>
                 <span class="badge bg-soft-primary" id="cartCount">0 items</span>
             </div>
-            <div class="card-body d-flex flex-column" style="gap:14px">
+            <div class="card-body d-flex flex-column pos-cart-body" style="gap:14px">
                 <form method="POST" action="<?= e(base_url('pos/checkout')) ?>" id="checkoutForm">
                     <?= csrf_field() ?>
                     <input type="hidden" name="items" id="cartItemsInput" value="[]">
 
-                    <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:80px">
+                    <div class="card-soft">
+                        <div class="section-title"><i class="fas fa-user"></i> Customer Information</div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Customer Name</label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="customer_name"
+                                    id="customerNameInput"
+                                    value="<?= e((string) old('customer_name')) ?>"
+                                    placeholder="Walk-in Customer"
+                                >
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Customer Address</label>
+                                <textarea
+                                    class="form-control"
+                                    name="customer_address"
+                                    id="customerAddressInput"
+                                    rows="2"
+                                    placeholder="No Address Provided"
+                                ><?= e((string) old('customer_address')) ?></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pos-cart-table-wrap">
                         <table class="table align-middle mb-0" style="font-size:.78rem">
                             <thead>
                                 <tr>
@@ -66,226 +104,464 @@ $jsProducts = json_encode(array_map(function($p) {
                         </table>
                     </div>
 
-                    <div class="card-soft">
-                        <div style="display:flex;justify-content:space-between;font-size:.84rem;margin-bottom:6px">
+                    <div class="card-soft pos-summary-card">
+                        <div class="pos-summary-row">
                             <span>Subtotal</span>
-                            <span id="cartSubtotal" style="font-weight:600">₱0.00</span>
+                            <span id="cartSubtotal" style="font-weight:600">&#8369;0.00</span>
                         </div>
-                        <hr style="border-color:var(--border);margin:6px 0">
-                        <div style="display:flex;justify-content:space-between;font-size:.94rem;margin-bottom:6px">
-                            <span style="font-weight:700">Total</span>
-                            <strong id="cartTotal" style="color:var(--primary);font-size:1.1rem">₱0.00</strong>
+                        <div class="pos-summary-row">
+                            <span>Net Price</span>
+                            <span id="cartNetPrice" style="font-weight:600">&#8369;0.00</span>
                         </div>
-                        <div style="display:flex;justify-content:space-between;font-size:.84rem">
+                        <div class="pos-summary-row">
+                            <span>VAT 12%</span>
+                            <span id="cartVatAmount" style="font-weight:600">&#8369;0.00</span>
+                        </div>
+                        <hr style="border-color:var(--border);margin:10px 0">
+                        <div class="pos-summary-row pos-summary-total">
+                            <span style="font-weight:700">Total Price</span>
+                            <strong id="cartTotal">&#8369;0.00</strong>
+                        </div>
+                        <div class="pos-summary-row">
                             <span>Change</span>
-                            <strong id="cartChange" style="color:var(--success)">₱0.00</strong>
+                            <strong id="cartChange" class="pos-change-value">&#8369;0.00</strong>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="form-label">Payment Amount</label>
-                        <div class="input-group">
-                            <span class="input-group-text" style="font-weight:800">₱</span>
-                            <input type="number" step="0.01" min="0" class="form-control"
-                                   name="payment_amount" id="paymentInput" placeholder="0.00">
+                    <div class="pos-payment-block">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                                <?php $selectedPaymentMethod = (string) old('payment_method', 'Cash'); ?>
+                                <select class="form-select" name="payment_method" id="paymentMethodInput" required>
+                                    <?php foreach ($paymentMethods as $paymentMethod): ?>
+                                        <option value="<?= e($paymentMethod) ?>" <?= $selectedPaymentMethod === $paymentMethod ? 'selected' : '' ?>><?= e($paymentMethod) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6" id="referenceFieldWrap" style="<?= $selectedPaymentMethod === 'Cash' ? 'display:none' : '' ?>">
+                                <label class="form-label">Reference # <span class="text-danger">*</span></label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="reference_no"
+                                    id="referenceNoInput"
+                                    value="<?= e((string) old('reference_no')) ?>"
+                                    placeholder="Enter reference number"
+                                >
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Payment Amount</label>
+                                <div class="input-group">
+                                    <span class="input-group-text" style="font-weight:800">&#8369;</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        class="form-control"
+                                        name="payment_amount"
+                                        id="paymentInput"
+                                        placeholder="0.00"
+                                        value="<?= e((string) old('payment_amount')) ?>"
+                                    >
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-success w-100 btn-lg">✓ Complete Sale</button>
+                    <button type="submit" class="btn btn-success w-100 btn-lg">
+                        <i class="fas fa-check"></i> Complete Sale
+                    </button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
+<div class="card mt-4">
+    <div class="card-header">
+        <span><i class="fas fa-clock-rotate-left"></i> Purchase History</span>
+        <span class="badge bg-soft-primary"><?= count($purchaseHistory) ?> records</span>
+    </div>
+    <div class="card-body border-bottom">
+        <form method="GET" action="<?= e(base_url('pos')) ?>" class="row g-2 align-items-end" data-live-search="true" data-live-render="purchaseHistory">
+            <div class="col-md-4">
+                <label class="form-label">Search Purchase History</label>
+                <input
+                    type="text"
+                    name="history_search"
+                    class="form-control"
+                    value="<?= e($historySearch ?? '') ?>"
+                    placeholder="Invoice, customer, cashier, payment method, reference, or status"
+                >
+            </div>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Invoice</th>
+                    <th>Customer</th>
+                    <th>Payment</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody
+                id="purchaseHistoryTableBody"
+                data-base-url="<?= e(base_url()) ?>"
+                data-csrf-token="<?= e(csrf_token()) ?>"
+            >
+                <?php foreach ($purchaseHistory as $row): ?>
+                    <?php
+                    $statusClass = match ($row['status']) {
+                        'voided' => 'bg-soft-warning',
+                        'deleted' => 'bg-soft-danger',
+                        default => 'bg-soft-success',
+                    };
+                    ?>
+                    <tr>
+                        <td><span class="badge bg-soft-primary"><?= e($row['invoice_no']) ?></span></td>
+                        <td>
+                            <div style="font-size:.82rem;font-weight:700"><?= e($row['customer_name'] ?: 'Walk-in Customer') ?></div>
+                            <div class="small-muted"><?= e($row['customer_address'] ?: 'No address provided') ?></div>
+                        </td>
+                        <td>
+                            <div style="font-size:.82rem;font-weight:700"><?= e($row['payment_method'] ?: 'Cash') ?></div>
+                            <div class="small-muted"><?= e($row['reference_no'] ?: '-') ?></div>
+                        </td>
+                        <td><strong><?= e(format_currency($row['total_amount'])) ?></strong></td>
+                        <td><span class="badge <?= $statusClass ?>"><?= e(ucfirst((string) $row['status'])) ?></span></td>
+                        <td class="small-muted"><?= e(format_datetime($row['created_at'])) ?></td>
+                        <td>
+                            <div class="action-group">
+                                <a class="btn btn-sm btn-outline-primary btn-icon" href="<?= e(base_url('pos/receipt?id=' . (int) $row['id'])) ?>" title="View receipt" aria-label="View receipt">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <?php if ($row['status'] === 'completed'): ?>
+                                    <form method="POST" action="<?= e(base_url('pos/void')) ?>" class="js-confirm-form" data-confirm-message="Void this transaction and restore its stock quantities?" data-confirm-button="Void">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+                                        <button class="btn btn-sm btn-outline-warning btn-icon" title="Void transaction" aria-label="Void transaction">
+                                            <i class="fas fa-ban"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ($row['status'] === 'voided'): ?>
+                                    <form method="POST" action="<?= e(base_url('pos/delete')) ?>" class="js-confirm-form" data-confirm-message="Delete this voided transaction from active history?" data-confirm-button="Delete">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+                                        <button class="btn btn-sm btn-outline-danger btn-icon" title="Delete transaction" aria-label="Delete transaction">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$purchaseHistory): ?>
+                    <tr><td colspan="7" class="text-center text-muted py-4" style="font-size:.82rem">No purchase history yet.</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+</section>
+
 <script>
 (function () {
-    /* ── Data from PHP ─────────────────────────── */
-    var ALL_PRODUCTS  = <?= $jsProducts ?>;
-    var SEARCH_URL    = <?= json_encode(base_url('pos/search')) ?>;
-
-    /* ── Cart state ────────────────────────────── */
+    var VAT_RATE = 0.12;
+    var ALL_PRODUCTS = <?= $jsProducts ?>;
+    var SEARCH_URL = <?= json_encode(base_url('pos/search')) ?>;
     var cart = [];
 
-    /* ── DOM refs ──────────────────────────────── */
-    var grid         = document.getElementById('posGrid');
-    var cartBody     = document.getElementById('cartBody');
-    var cartCountEl  = document.getElementById('cartCount');
-    var subtotalEl   = document.getElementById('cartSubtotal');
-    var totalEl      = document.getElementById('cartTotal');
-    var changeEl     = document.getElementById('cartChange');
+    var grid = document.getElementById('posGrid');
+    var cartBody = document.getElementById('cartBody');
+    var cartCountEl = document.getElementById('cartCount');
+    var posCatalogCountEl = document.getElementById('posCatalogCount');
+    var subtotalEl = document.getElementById('cartSubtotal');
+    var netPriceEl = document.getElementById('cartNetPrice');
+    var vatAmountEl = document.getElementById('cartVatAmount');
+    var totalEl = document.getElementById('cartTotal');
+    var changeEl = document.getElementById('cartChange');
     var paymentInput = document.getElementById('paymentInput');
-    var itemsInput   = document.getElementById('cartItemsInput');
-    var form         = document.getElementById('checkoutForm');
-    var searchInput  = document.getElementById('posSearch');
+    var paymentMethodInput = document.getElementById('paymentMethodInput');
+    var referenceFieldWrap = document.getElementById('referenceFieldWrap');
+    var referenceNoInput = document.getElementById('referenceNoInput');
+    var customerNameInput = document.getElementById('customerNameInput');
+    var itemsInput = document.getElementById('cartItemsInput');
+    var form = document.getElementById('checkoutForm');
+    var searchInput = document.getElementById('posSearch');
+    var submitButton = form.querySelector('button[type="submit"]');
 
-    /* ── Helpers ───────────────────────────────── */
+    function requiresExactPaymentMethod() {
+        return paymentMethodInput && paymentMethodInput.value !== 'Cash';
+    }
+
+    function syncPaymentAmount(total) {
+        if (!paymentInput) {
+            return;
+        }
+
+        if (requiresExactPaymentMethod()) {
+            paymentInput.value = Number(total || 0).toFixed(2);
+            paymentInput.readOnly = true;
+        } else {
+            paymentInput.readOnly = false;
+        }
+    }
+
+    function syncPaymentReferenceVisibility() {
+        if (!paymentMethodInput || !referenceFieldWrap || !referenceNoInput) {
+            return;
+        }
+
+        var requiresReference = requiresExactPaymentMethod();
+        referenceFieldWrap.style.display = requiresReference ? '' : 'none';
+        referenceNoInput.required = requiresReference;
+
+        if (!requiresReference) {
+            referenceNoInput.value = '';
+        }
+    }
+
     function fmt(n) {
-        return '₱' + Number(n || 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        return '\u20b1' + Number(n || 0).toLocaleString('en-PH', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
     }
 
     function cartTotal() {
-        return cart.reduce(function(s, i) { return s + i.price * i.qty; }, 0);
+        return cart.reduce(function (sum, item) {
+            return sum + item.price * item.qty;
+        }, 0);
     }
 
-    /* ── Render product grid ───────────────────── */
+    function escHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
     function renderGrid(products) {
+        if (posCatalogCountEl) {
+            posCatalogCountEl.textContent = products.length + (products.length === 1 ? ' product' : ' products');
+        }
+
         if (!products.length) {
             grid.innerHTML = '<div style="color:var(--muted);font-size:.80rem;grid-column:1/-1;padding:14px 0">No products found.</div>';
             return;
         }
+
         grid.innerHTML = '';
-        products.forEach(function(p) {
+        products.forEach(function (product) {
             var card = document.createElement('div');
-            card.className = 'product-card';
+            card.className = 'product-card pos-product-card';
             card.innerHTML =
-                '<strong style="font-size:.80rem;font-weight:700;display:block;line-height:1.3">' + escHtml(p.name) + '</strong>' +
-                '<div class="small-muted">' + escHtml(p.cat) + '</div>' +
-                '<div class="product-card-price">' + fmt(p.price) + '</div>' +
-                '<div class="small-muted" style="font-size:.67rem">' + p.stock + ' in stock</div>';
-            /* use closure to capture p */
-            card.addEventListener('click', (function(prod) {
-                return function() { addToCart(prod); };
-            })(p));
+                '<div class="pos-product-top">' +
+                    '<strong class="pos-product-name">' + escHtml(product.name) + '</strong>' +
+                    '<span class="badge bg-soft-primary">Stock ' + product.stock + '</span>' +
+                '</div>' +
+                '<div class="small-muted">' + escHtml(product.cat) + '</div>' +
+                '<div class="pos-product-bottom">' +
+                    '<div class="product-card-price">' + fmt(product.price) + '</div>' +
+                    '<div class="small-muted" style="font-size:.67rem">Tap to add</div>' +
+                '</div>';
+            card.addEventListener('click', function () {
+                addToCart(product);
+            });
             grid.appendChild(card);
         });
     }
 
-    /* ── Add to cart ───────────────────────────── */
-    function addToCart(p) {
+    function addToCart(product) {
         var found = null;
         for (var i = 0; i < cart.length; i++) {
-            if (cart[i].id === p.id) { found = cart[i]; break; }
+            if (cart[i].id === product.id) {
+                found = cart[i];
+                break;
+            }
         }
+
         if (found) {
-            if (found.qty < found.stock) found.qty++;
+            if (found.qty < found.stock) {
+                found.qty++;
+            }
         } else {
-            cart.push({ id: p.id, name: p.name, price: p.price, stock: p.stock, qty: 1 });
+            cart.push({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                stock: product.stock,
+                qty: 1
+            });
         }
+
         renderCart();
     }
 
-    /* ── Render cart ───────────────────────────── */
     function renderCart() {
         var total = cartTotal();
+        var netPrice = total / (1 + VAT_RATE);
+        var vatAmount = total - netPrice;
+
+        syncPaymentAmount(total);
 
         cartCountEl.textContent = cart.length + (cart.length === 1 ? ' item' : ' items');
 
         if (cart.length === 0) {
             cartBody.innerHTML =
                 '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;font-size:.78rem">' +
-                'No items yet — click a product to add it</td></tr>';
+                'No items yet - click a product to add it</td></tr>';
         } else {
             cartBody.innerHTML = '';
-            cart.forEach(function(item, idx) {
+            cart.forEach(function (item, idx) {
                 var tr = document.createElement('tr');
                 tr.innerHTML =
                     '<td style="font-weight:600;word-break:break-word;max-width:120px">' + escHtml(item.name) + '</td>' +
                     '<td><input type="number" min="1" max="' + item.stock + '" value="' + item.qty + '" ' +
-                         'data-idx="' + idx + '" class="qty-inp form-control form-control-sm" ' +
-                         'style="width:62px;font-size:.76rem;padding:.26rem .44rem"></td>' +
+                        'data-idx="' + idx + '" class="qty-inp form-control form-control-sm" ' +
+                        'style="width:62px;font-size:.76rem;padding:.26rem .44rem"></td>' +
                     '<td style="white-space:nowrap">' + fmt(item.price) + '</td>' +
                     '<td style="font-weight:700;white-space:nowrap">' + fmt(item.price * item.qty) + '</td>' +
                     '<td><button type="button" data-idx="' + idx + '" class="rm-btn" ' +
-                         'style="background:none;border:1px solid var(--danger);color:var(--danger);' +
-                         'border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:14px;' +
-                         'line-height:1;padding:0">×</button></td>';
+                        'style="background:none;border:1px solid var(--danger);color:var(--danger);' +
+                        'border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:14px;' +
+                        'line-height:1;padding:0">x</button></td>';
                 cartBody.appendChild(tr);
             });
         }
 
-        /* update totals */
-        var pay    = parseFloat(paymentInput.value) || 0;
+        var pay = parseFloat(paymentInput.value) || 0;
         subtotalEl.textContent = fmt(total);
-        totalEl.textContent    = fmt(total);
-        changeEl.textContent   = fmt(Math.max(pay - total, 0));
+        netPriceEl.textContent = fmt(netPrice);
+        vatAmountEl.textContent = fmt(vatAmount);
+        totalEl.textContent = fmt(total);
+        changeEl.textContent = fmt(Math.max(pay - total, 0));
 
-        /* serialise */
-        itemsInput.value = JSON.stringify(
-            cart.map(function(i) { return { product_id: i.id, quantity: i.qty }; })
-        );
+        itemsInput.value = JSON.stringify(cart.map(function (item) {
+            return { product_id: item.id, quantity: item.qty };
+        }));
+
+        if (submitButton) {
+            submitButton.disabled = cart.length === 0;
+        }
     }
 
-    /* ── Cart delegation ───────────────────────── */
-    cartBody.addEventListener('change', function(e) {
-        if (!e.target.classList.contains('qty-inp')) return;
-        var idx = parseInt(e.target.dataset.idx, 10);
-        var n   = Math.max(1, Math.min(parseInt(e.target.value, 10) || 1, cart[idx].stock));
-        cart[idx].qty  = n;
-        e.target.value = n;
+    cartBody.addEventListener('change', function (event) {
+        if (!event.target.classList.contains('qty-inp')) {
+            return;
+        }
+
+        var idx = parseInt(event.target.dataset.idx, 10);
+        var quantity = Math.max(1, Math.min(parseInt(event.target.value, 10) || 1, cart[idx].stock));
+        cart[idx].qty = quantity;
+        event.target.value = quantity;
         renderCart();
     });
 
-    cartBody.addEventListener('click', function(e) {
-        var btn = e.target.closest('.rm-btn');
-        if (!btn) return;
+    cartBody.addEventListener('click', function (event) {
+        var btn = event.target.closest('.rm-btn');
+        if (!btn) {
+            return;
+        }
+
         cart.splice(parseInt(btn.dataset.idx, 10), 1);
         renderCart();
     });
 
-    paymentInput.addEventListener('input', function() {
-        var total  = cartTotal();
-        var pay    = parseFloat(this.value) || 0;
+    paymentInput.addEventListener('input', function () {
+        if (requiresExactPaymentMethod()) {
+            return;
+        }
+
+        var total = cartTotal();
+        var pay = parseFloat(this.value) || 0;
         changeEl.textContent = fmt(Math.max(pay - total, 0));
     });
 
-    /* ── Form validation ───────────────────────── */
-    form.addEventListener('submit', function(e) {
+    if (paymentMethodInput) {
+        paymentMethodInput.addEventListener('change', function () {
+            syncPaymentReferenceVisibility();
+            syncPaymentAmount(cartTotal());
+            renderCart();
+        });
+    }
+
+    form.addEventListener('submit', function (event) {
         if (cart.length === 0) {
-            e.preventDefault();
+            event.preventDefault();
             alert('Cart is empty.\nClick a product card to add it first.');
             return;
         }
+
         var total = cartTotal();
-        var pay   = parseFloat(paymentInput.value) || 0;
+        var pay = parseFloat(paymentInput.value) || 0;
+
         if (pay <= 0) {
-            e.preventDefault();
+            event.preventDefault();
             alert('Please enter the payment amount.');
             paymentInput.focus();
             return;
         }
+
         if (pay < total) {
-            e.preventDefault();
+            event.preventDefault();
             alert('Payment (' + fmt(pay) + ') is less than the total (' + fmt(total) + ').');
             paymentInput.focus();
+            return;
+        }
+
+        if (paymentMethodInput && paymentMethodInput.value !== 'Cash' && referenceNoInput && !referenceNoInput.value.trim()) {
+            event.preventDefault();
+            alert('Reference # is required for the selected payment method.');
+            referenceNoInput.focus();
         }
     });
 
-    /* ── Live search ───────────────────────────── */
     var searchTimer;
-    searchInput.addEventListener('input', function() {
+    searchInput.addEventListener('input', function () {
         clearTimeout(searchTimer);
-        var q = this.value.trim();
+        var query = this.value.trim();
 
-        if (q === '') {
+        if (query === '') {
             renderGrid(ALL_PRODUCTS);
             return;
         }
 
-        searchTimer = setTimeout(function() {
-            fetch(SEARCH_URL + '?search=' + encodeURIComponent(q), {
+        searchTimer = setTimeout(function () {
+            fetch(SEARCH_URL + '?search=' + encodeURIComponent(query), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                renderGrid(data.map(function(p) {
-                    return { id: p.id, name: p.name, price: parseFloat(p.selling_price),
-                             stock: p.stock_quantity, cat: p.category_name || '' };
-                }));
-            })
-            .catch(function(err) { console.error('Search error:', err); });
+                .then(function (response) {
+                    return response.json();
+                })
+                .then(function (data) {
+                    renderGrid(data.map(function (product) {
+                        return {
+                            id: product.id,
+                            name: product.name,
+                            price: parseFloat(product.selling_price),
+                            stock: product.stock_quantity,
+                            cat: product.category_name || ''
+                        };
+                    }));
+                })
+                .catch(function (error) {
+                    console.error('Search error:', error);
+                });
         }, 280);
     });
 
-    /* ── Escape HTML ───────────────────────────── */
-    function escHtml(s) {
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-                        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    /* ── Init ──────────────────────────────────── */
     renderGrid(ALL_PRODUCTS);
+    syncPaymentReferenceVisibility();
     renderCart();
-
 })();
 </script>
