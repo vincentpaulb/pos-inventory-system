@@ -1,8 +1,12 @@
 <?php
 $receiptPrintedAt = format_datetime($transaction['created_at']);
-$receiptVatRate = 0.12;
-$receiptNetPrice = (float) $transaction['total_amount'] / (1 + $receiptVatRate);
-$receiptVatAmount = (float) $transaction['total_amount'] - $receiptNetPrice;
+$receiptTax = sales_tax_breakdown((float) $transaction['total_amount']);
+$receiptNetPrice = $receiptTax['net'];
+$receiptVatAmount = $receiptTax['vat'];
+$receiptVatLabel = system_vat_label();
+$organization = organization_info();
+$receiptCompanyName = organization_name();
+$receiptCompanyLine = organization_secondary_line();
 ?>
 
 <style>
@@ -47,8 +51,10 @@ $receiptVatAmount = (float) $transaction['total_amount'] - $receiptNetPrice;
     <div id="printArea" class="receipt-paper">
         <div class="receipt-thermal">
             <div class="receipt-thermal-header">
-                <div class="receipt-thermal-title"><?= e(APP_NAME) ?></div>
-                <div class="receipt-thermal-subtitle">Heavy Equipment Parts Trading</div>
+                <div class="receipt-thermal-title"><?= e($receiptCompanyName) ?></div>
+                <?php if ($receiptCompanyLine !== ''): ?>
+                    <div class="receipt-thermal-subtitle"><?= e($receiptCompanyLine) ?></div>
+                <?php endif; ?>
                 <div class="receipt-thermal-subtitle">Sales Receipt</div>
             </div>
 
@@ -124,7 +130,7 @@ $receiptVatAmount = (float) $transaction['total_amount'] - $receiptNetPrice;
                     <strong><?= e(format_currency($receiptNetPrice)) ?></strong>
                 </div>
                 <div class="receipt-thermal-summary-row">
-                    <span>VAT 12%</span>
+                    <span><?= e($receiptVatLabel) ?></span>
                     <strong><?= e(format_currency($receiptVatAmount)) ?></strong>
                 </div>
                 <div class="receipt-thermal-summary-row">

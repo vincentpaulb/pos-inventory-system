@@ -25,7 +25,7 @@ class ProductController
 
     public function index(): void
     {
-        require_auth();
+        require_module_access('products');
         $search = clean_input($_GET['search'] ?? '');
         $categoryId = clean_input($_GET['category_id'] ?? '');
         $products = $this->products->all($search, $categoryId);
@@ -49,7 +49,7 @@ class ProductController
 
     public function create(): void
     {
-        require_auth();
+        require_module_access('products');
         view('products/create', [
             'title' => 'Add Product',
             'categories' => $this->categories->all(),
@@ -60,7 +60,7 @@ class ProductController
 
     public function store(): void
     {
-        require_auth();
+        require_module_access('products');
         verify_csrf();
 
         $supplierId = (int) ($_POST['supplier_id'] ?? 0);
@@ -129,7 +129,7 @@ class ProductController
 
     public function edit(): void
     {
-        require_auth();
+        require_module_access('products');
         $id = (int) ($_GET['id'] ?? 0);
         $product = $this->products->find($id);
 
@@ -149,7 +149,7 @@ class ProductController
 
     public function update(): void
     {
-        require_auth();
+        require_module_access('products');
         verify_csrf();
 
         $id = (int) ($_POST['id'] ?? 0);
@@ -216,7 +216,7 @@ class ProductController
 
     public function delete(): void
     {
-        require_role('Admin');
+        require_module_access('products');
         verify_csrf();
 
         $id = (int) ($_POST['id'] ?? 0);
@@ -229,7 +229,7 @@ class ProductController
 
     public function stockForm(): void
     {
-        require_auth();
+        require_module_access('products');
         $id = (int) ($_GET['id'] ?? 0);
         $product = $this->products->find($id);
 
@@ -246,7 +246,7 @@ class ProductController
 
     public function stockAdjust(): void
     {
-        require_auth();
+        require_module_access('products');
         verify_csrf();
 
         $productId = (int) ($_POST['product_id'] ?? 0);
@@ -269,5 +269,24 @@ class ProductController
         $this->logs->log((int) auth_user()['id'], 'stock_adjust', strtoupper($type) . ' stock on product ID: ' . $productId);
         flash('success', 'Stock adjusted successfully.');
         redirect('products');
+    }
+
+    public function movements(): void
+    {
+        require_module_access('stock-movements');
+
+        $from   = clean_input($_GET['from']   ?? '');
+        $to     = clean_input($_GET['to']     ?? '');
+        $search = clean_input($_GET['search'] ?? '');
+        $type   = clean_input($_GET['type']   ?? '');
+
+        view('products/movements', [
+            'title'     => 'Stock Movements',
+            'movements' => $this->products->filteredMovements($from ?: null, $to ?: null, $search, $type),
+            'from'      => $from,
+            'to'        => $to,
+            'search'    => $search,
+            'type'      => $type,
+        ]);
     }
 }

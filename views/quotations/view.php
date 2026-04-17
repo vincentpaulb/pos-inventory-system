@@ -3,7 +3,10 @@ $pdfCurrency = static function ($amount): string {
     return 'PHP ' . number_format((float) $amount, 2);
 };
 
-$quotationHeaderImageUrl = base_url('public/images/header.png');
+$organization = organization_info();
+$quotationHeaderImageUrl = organization_header_url();
+$quotationCompanyName = organization_name();
+$quotationCompanySubtitle = organization_secondary_line();
 $quotationSubjectParagraphs = [
     'We respectfully submit this quotation for your kind review and approval. The prices and corresponding service charges outlined herein are carefully based on the requested items, as well as the applicable repair option determined at the time of issuance.',
     'Please note that all costs provided reflect current assessments and are subject to change should there be any modifications to the scope of work, materials required, or prevailing conditions at the time of service. Should you require any clarification or further details regarding this quotation, we would be pleased to assist you.',
@@ -29,9 +32,9 @@ $quotationPdfPayload = json_encode([
     'subtotalAmount' => $pdfCurrency($quotation['subtotal_amount']),
     'serviceFee' => $pdfCurrency($quotation['service_fee']),
     'totalAmount' => $pdfCurrency($quotation['total_amount']),
-    'headerImageUrl' => (string) $quotationHeaderImageUrl,
-    'companyName' => (string) APP_NAME,
-    'companySubtitle' => 'Heavy Equipment Parts Trading',
+    'headerImageUrl' => (string) ($quotationHeaderImageUrl ?? ''),
+    'companyName' => (string) $quotationCompanyName,
+    'companySubtitle' => (string) $quotationCompanySubtitle,
     'companyCaption' => 'Formal Sales Quotation',
     'items' => array_map(function ($item, $index) use ($pdfCurrency) {
         return [
@@ -55,9 +58,6 @@ $quotationPdfPayload = json_encode([
         <button type="button" class="btn btn-primary" id="downloadQuotationPdfBtn">
             <i class="fas fa-file-pdf"></i> Download PDF
         </button>
-        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
-            <i class="fas fa-print"></i> Print Quotation
-        </button>
         <a class="btn btn-outline-secondary" href="<?= e(base_url('quotations')) ?>">
             <i class="fas fa-arrow-left"></i> Back to Quotations
         </a>
@@ -68,11 +68,18 @@ $quotationPdfPayload = json_encode([
     <div id="printArea" class="quotation-paper">
         <div class="quotation-paper-header">
             <div class="quotation-paper-company">
-                <img
-                    src="<?= e($quotationHeaderImageUrl) ?>"
-                    alt="<?= e(APP_NAME) ?> header"
-                    class="quotation-paper-company-image"
-                >
+                <?php if ($quotationHeaderImageUrl): ?>
+                    <img
+                        src="<?= e($quotationHeaderImageUrl) ?>"
+                        alt="<?= e($quotationCompanyName) ?> header"
+                        class="quotation-paper-company-image"
+                    >
+                <?php else: ?>
+                    <div class="quotation-paper-brand"><?= e($quotationCompanyName) ?></div>
+                    <?php if ($quotationCompanySubtitle !== ''): ?>
+                        <div class="quotation-paper-subtitle"><?= e($quotationCompanySubtitle) ?></div>
+                    <?php endif; ?>
+                <?php endif; ?>
             </div>
             <div class="quotation-paper-meta">
                 <div class="quotation-paper-meta-row"><span>Quotation No.</span><strong><?= e($quotation['quote_no']) ?></strong></div>
@@ -171,7 +178,7 @@ $quotationPdfPayload = json_encode([
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="<?= e(base_url('public/vendor/jsPDF-4.2.1/dist/jspdf.umd.min.js')) ?>"></script>
 <script>
 (function () {
     var downloadBtn = document.getElementById('downloadQuotationPdfBtn');
@@ -437,17 +444,19 @@ $quotationPdfPayload = json_encode([
                 var col = {
                     n: marginX + 3,
                     product: marginX + 10,
-                    qtyRight: marginX + 118,
-                    unitType: marginX + 124,
-                    unitRight: marginX + 164,
+                    qtyRight: marginX + 108,
+                    unitTypeX: marginX + 112,
+                    unitPriceLabelX: marginX + 136,
+                    unitPriceRight: marginX + 152,
+                    subtotalLabelX: marginX + 160,
                     subtotalRight: pageWidth - marginX - 4
                 };
                 pdf.text('#', col.n, y + 5.2);
                 pdf.text('PRODUCT', col.product, y + 5.2);
                 pdf.text('QTY', col.qtyRight, y + 5.2, { align: 'right' });
-                pdf.text('UNIT TYPE', col.unitType, y + 5.2);
-                pdf.text('UNIT PRICE', col.unitRight, y + 5.2, { align: 'right' });
-                pdf.text('SUBTOTAL', col.subtotalRight, y + 5.2, { align: 'right' });
+                pdf.text('UNIT TYPE', col.unitTypeX, y + 5.2);
+                pdf.text('UNIT PRICE', col.unitPriceLabelX, y + 5.2);
+                pdf.text('SUBTOTAL', col.subtotalLabelX, y + 5.2);
                 y += 8;
                 return col;
             }
@@ -468,8 +477,8 @@ $quotationPdfPayload = json_encode([
                 pdf.text(item.product, col.product, y);
                 pdf.setFont('helvetica', 'normal');
                 pdf.text(item.quantity, col.qtyRight, y, { align: 'right' });
-                pdf.text(item.unitType, col.unitType, y);
-                pdf.text(item.unitPrice, col.unitRight, y, { align: 'right' });
+                pdf.text(item.unitType, col.unitTypeX, y);
+                pdf.text(item.unitPrice, col.unitPriceRight, y, { align: 'right' });
                 pdf.setFont('helvetica', 'bold');
                 pdf.text(item.subtotal, col.subtotalRight, y, { align: 'right' });
                 y += 2.4;
@@ -478,8 +487,21 @@ $quotationPdfPayload = json_encode([
             pdf.line(marginX, y, pageWidth - marginX, y);
             y += 3;
 
+            var notesLines = textLines(pdfData.notes, contentWidth - 8, 7.4);
+            var notesHeight = 10.5 + textHeight(notesLines, 7.4);
             var totalsHeight = 14.5;
-            ensureSpace(totalsHeight + 12);
+            ensureSpace(notesHeight + totalsHeight + 26);
+            drawRoundedBlock(marginX, y, contentWidth, notesHeight);
+            pdf.setFont('helvetica', 'bold');
+            pdf.setFontSize(6.7);
+            pdf.setTextColor(142, 66, 66);
+            pdf.text(pdfData.termsLabel || 'Terms and Conditions', marginX + 4, y + 5.7);
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(7.4);
+            pdf.setTextColor(126, 78, 78);
+            pdf.text(notesLines, marginX + 4, y + 9.3);
+            y += notesHeight + 8;
+
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(8.2);
             pdf.setTextColor(40, 40, 40);
@@ -494,21 +516,7 @@ $quotationPdfPayload = json_encode([
             pdf.setFontSize(9.2);
             pdf.text('Total Quotation Amount', marginX + 2, y + 14.6);
             pdf.text(pdfData.totalAmount, pageWidth - marginX - 2, y + 14.6, { align: 'right' });
-            y += totalsHeight + 8;
-
-            var notesLines = textLines(pdfData.notes, contentWidth - 8, 7.4);
-            var notesHeight = 10.5 + textHeight(notesLines, 7.4);
-            ensureSpace(notesHeight + 26);
-            drawRoundedBlock(marginX, y, contentWidth, notesHeight);
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(6.7);
-            pdf.setTextColor(142, 66, 66);
-            pdf.text(pdfData.termsLabel || 'Terms and Conditions', marginX + 4, y + 5.7);
-            pdf.setFont('helvetica', 'normal');
-            pdf.setFontSize(7.4);
-            pdf.setTextColor(126, 78, 78);
-            pdf.text(notesLines, marginX + 4, y + 9.3);
-            y += notesHeight + 42;
+            y += totalsHeight + 18;
 
             pdf.setDrawColor(212, 212, 212);
             pdf.setLineWidth(0.2);

@@ -1,4 +1,4 @@
-<?php $canDeleteCategories = has_role('Admin'); ?>
+<?php $canDeleteCategories = can_access_module('categories'); ?>
 
 <div class="page-header">
     <div class="page-header-left">
@@ -53,7 +53,7 @@
                             <td>
                                 <div class="action-group justify-content-end">
                                     <button class="btn btn-sm btn-outline-success btn-icon" data-bs-toggle="collapse" data-bs-target="#cat<?= (int) $category['id'] ?>" title="Edit category" aria-label="Edit category"><i class="fas fa-pen"></i></button>
-                                    <?php if (has_role('Admin')): ?>
+                                    <?php if ($canDeleteCategories): ?>
                                     <form method="POST" action="<?= e(base_url('categories/delete')) ?>" class="js-confirm-form" data-confirm-message="Delete this category?" data-confirm-button="Delete">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $category['id'] ?>">

@@ -5,6 +5,23 @@ require_once BASE_PATH . '/models/BaseModel.php';
 
 class User extends BaseModel
 {
+    private function composeName(string $firstName, string $middleInitial, string $lastName): string
+    {
+        $parts = [$firstName];
+
+        if ($middleInitial !== '') {
+            $parts[] = strtoupper(substr($middleInitial, 0, 1)) . '.';
+        }
+
+        $parts[] = $lastName;
+        return trim(implode(' ', array_filter($parts)));
+    }
+
+    private function normalizeMiddleInitial(string $middleInitial): string
+    {
+        return $middleInitial !== '' ? strtoupper(substr($middleInitial, 0, 1)) : '';
+    }
+
     public function findByUsername(string $username): ?array
     {
         $stmt = $this->db->prepare("SELECT * FROM users WHERE username = :username LIMIT 1");
@@ -15,25 +32,43 @@ class User extends BaseModel
 
     public function all(): array
     {
-        return $this->db->query("SELECT id, name, username, role, created_at FROM users ORDER BY id DESC")->fetchAll();
+        return $this->db->query("
+            SELECT id, name, first_name, middle_initial, last_name, contact, username, role, created_at
+            FROM users
+            ORDER BY id DESC
+        ")->fetchAll();
     }
 
     public function find(int $id): ?array
     {
-        $stmt = $this->db->prepare("SELECT id, name, username, role, created_at FROM users WHERE id = :id LIMIT 1");
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE id = :id LIMIT 1");
         $stmt->execute(['id' => $id]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function firstAdmin(): ?array
+    {
+        $stmt = $this->db->query("SELECT * FROM users WHERE role = 'Admin' ORDER BY id ASC LIMIT 1");
         $row = $stmt->fetch();
         return $row ?: null;
     }
 
     public function create(array $data): bool
     {
+        $middleInitial = $this->normalizeMiddleInitial($data['middle_initial'] ?? '');
+        $name = $this->composeName($data['first_name'], $middleInitial, $data['last_name']);
+
         $stmt = $this->db->prepare("
-            INSERT INTO users (name, username, password, role)
-            VALUES (:name, :username, :password, :role)
+            INSERT INTO users (name, first_name, middle_initial, last_name, contact, username, password, role)
+            VALUES (:name, :first_name, :middle_initial, :last_name, :contact, :username, :password, :role)
         ");
         return $stmt->execute([
-            'name' => $data['name'],
+            'name' => $name,
+            'first_name' => $data['first_name'],
+            'middle_initial' => $middleInitial !== '' ? $middleInitial : null,
+            'last_name' => $data['last_name'],
+            'contact' => $data['contact'] !== '' ? $data['contact'] : null,
             'username' => $data['username'],
             'password' => password_hash($data['password'], PASSWORD_DEFAULT),
             'role' => $data['role'],
@@ -42,30 +77,57 @@ class User extends BaseModel
 
     public function update(int $id, array $data): bool
     {
+        $middleInitial = $this->normalizeMiddleInitial($data['middle_initial'] ?? '');
+        $name = $this->composeName($data['first_name'], $middleInitial, $data['last_name']);
+
         $stmt = $this->db->prepare("
             UPDATE users
-            SET name = :name, username = :username, role = :role
+            SET
+                name = :name,
+                first_name = :first_name,
+                middle_initial = :middle_initial,
+                last_name = :last_name,
+                contact = :contact,
+                username = :username,
+                role = :role
             WHERE id = :id
         ");
         return $stmt->execute([
-            'name' => $data['name'],
+            'name' => $name,
+            'first_name' => $data['first_name'],
+            'middle_initial' => $middleInitial !== '' ? $middleInitial : null,
+            'last_name' => $data['last_name'],
+            'contact' => $data['contact'] !== '' ? $data['contact'] : null,
             'username' => $data['username'],
             'role' => $data['role'],
             'id' => $id,
         ]);
     }
 
-    public function updateProfile(int $id, string $name, string $username): bool
+    public function updateProfile(int $id, array $data): bool
     {
+        $middleInitial = $this->normalizeMiddleInitial($data['middle_initial'] ?? '');
+        $name = $this->composeName($data['first_name'], $middleInitial, $data['last_name']);
+
         $stmt = $this->db->prepare("
             UPDATE users
-            SET name = :name, username = :username
+            SET
+                name = :name,
+                first_name = :first_name,
+                middle_initial = :middle_initial,
+                last_name = :last_name,
+                contact = :contact,
+                username = :username
             WHERE id = :id
         ");
 
         return $stmt->execute([
             'name' => $name,
-            'username' => $username,
+            'first_name' => $data['first_name'],
+            'middle_initial' => $middleInitial !== '' ? $middleInitial : null,
+            'last_name' => $data['last_name'],
+            'contact' => $data['contact'] !== '' ? $data['contact'] : null,
+            'username' => $data['username'],
             'id' => $id,
         ]);
     }
@@ -83,6 +145,36 @@ class User extends BaseModel
     {
         $stmt = $this->db->prepare("DELETE FROM users WHERE id = :id");
         return $stmt->execute(['id' => $id]);
+    }
+
+    public function setupAdmin(int $id, array $data): bool
+    {
+        $name = $this->composeName($data['first_name'], $data['middle_initial'], $data['last_name']);
+
+        $stmt = $this->db->prepare("
+            UPDATE users
+            SET
+                name = :name,
+                first_name = :first_name,
+                middle_initial = :middle_initial,
+                last_name = :last_name,
+                contact = :contact,
+                username = :username,
+                password = :password,
+                role = 'Admin'
+            WHERE id = :id
+        ");
+
+        return $stmt->execute([
+            'name' => $name,
+            'first_name' => $data['first_name'],
+            'middle_initial' => $data['middle_initial'],
+            'last_name' => $data['last_name'],
+            'contact' => $data['contact'],
+            'username' => $data['username'],
+            'password' => password_hash($data['password'], PASSWORD_DEFAULT),
+            'id' => $id,
+        ]);
     }
 
     public function usernameExists(string $username, ?int $excludeId = null): bool

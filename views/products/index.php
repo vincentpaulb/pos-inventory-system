@@ -1,4 +1,4 @@
-<?php $canDeleteProducts = has_role('Admin'); ?>
+<?php $canDeleteProducts = can_access_module('products'); ?>
 
 <div class="page-header">
     <div class="page-header-left">
@@ -63,7 +63,7 @@
                 data-base-url="<?= e(base_url()) ?>"
                 data-csrf-token="<?= e(csrf_token()) ?>"
                 data-can-delete="<?= $canDeleteProducts ? '1' : '0' ?>"
-                data-low-stock-threshold="<?= (int) LOW_STOCK_THRESHOLD ?>">
+                data-low-stock-threshold="<?= (int) system_low_stock_threshold() ?>">
                 <?php foreach ($products as $product): ?>
                     <tr>
                         <td>
@@ -75,9 +75,16 @@
                         <td class="small-muted"><?= e(format_currency($product['buying_price'])) ?></td>
                         <td><strong><?= e(format_currency($product['selling_price'])) ?></strong></td>
                         <td>
-                            <span class="badge <?= (int)$product['stock_quantity'] <= LOW_STOCK_THRESHOLD ? 'bg-soft-danger' : 'bg-soft-success' ?>">
-                                <?= (int) $product['stock_quantity'] ?>
-                            </span>
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <span class="badge <?= (int)$product['stock_quantity'] <= system_low_stock_threshold() ? 'bg-soft-danger' : 'bg-soft-success' ?>">
+                                    <?= (int) $product['stock_quantity'] ?>
+                                </span>
+                                <?php if ((int)$product['stock_quantity'] <= system_low_stock_threshold()): ?>
+                                    <i class="fas fa-triangle-exclamation"
+                                       style="color:<?= (int)$product['stock_quantity'] === 0 ? '#dc2626' : '#f59e0b' ?>;font-size:.8rem"
+                                       title="<?= (int)$product['stock_quantity'] === 0 ? 'Out of stock' : 'Low stock' ?>"></i>
+                                <?php endif; ?>
+                            </div>
                         </td>
                         <td class="small-muted"><?= e($product['unit_type'] ?: 'PC') ?></td>
                         <td class="small-muted"><?= e($product['barcode'] ?: '—') ?></td>
@@ -85,7 +92,7 @@
                             <div class="action-group">
                                 <a class="btn btn-sm btn-outline-success btn-icon" href="<?= e(base_url('products/edit?id=' . $product['id'])) ?>" title="Edit product" aria-label="Edit product"><i class="fas fa-pen"></i></a>
                                 <a class="btn btn-sm btn-outline-secondary btn-icon" href="<?= e(base_url('products/stock?id=' . $product['id'])) ?>" title="Adjust stock" aria-label="Adjust stock"><i class="fas fa-warehouse"></i></a>
-                                <?php if (has_role('Admin')): ?>
+                                <?php if ($canDeleteProducts): ?>
                                     <form method="POST" action="<?= e(base_url('products/delete')) ?>" class="js-confirm-form" data-confirm-message="Delete this product?" data-confirm-button="Delete">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $product['id'] ?>">
@@ -99,37 +106,6 @@
                 <?php if (!$products): ?>
                     <tr><td colspan="9" class="text-center text-muted py-4" style="font-size:.82rem">No products found.</td></tr>
                 <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Stock Movements -->
-<div class="card">
-    <div class="card-header"><i class="fas fa-arrows-alt-v"></i> Recent Stock Movements</div>
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr><th>Product</th><th>Type</th><th>Qty</th><th>Remarks</th><th>User</th><th>Date</th></tr>
-            </thead>
-            <tbody>
-            <?php foreach ($movements as $movement): ?>
-                <tr>
-                    <td style="font-weight:600"><?= e($movement['product_name']) ?></td>
-                    <td>
-                        <span class="badge <?= $movement['movement_type'] === 'in' ? 'bg-soft-success' : 'bg-soft-warning' ?>">
-                            <?= $movement['movement_type'] === 'in' ? '<i class="fas fa-arrow-up"></i> IN' : '<i class="fas fa-arrow-down"></i> OUT' ?>
-                        </span>
-                    </td>
-                    <td><strong><?= (int) $movement['quantity'] ?></strong></td>
-                    <td class="small-muted"><?= e($movement['remarks']) ?></td>
-                    <td class="small-muted"><?= e($movement['user_name']) ?></td>
-                    <td class="small-muted"><?= e(format_datetime($movement['created_at'])) ?></td>
-                </tr>
-            <?php endforeach; ?>
-            <?php if (!$movements): ?>
-                <tr><td colspan="6" class="text-center text-muted py-4" style="font-size:.82rem">No stock movements yet.</td></tr>
-            <?php endif; ?>
             </tbody>
         </table>
     </div>

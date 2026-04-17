@@ -1,7 +1,7 @@
 <div class="page-header">
     <div class="page-header-left">
         <h1 class="page-header-title">User Management</h1>
-        <p class="page-header-desc">Create, update, and manage admin and cashier accounts with role-based access.</p>
+        <p class="page-header-desc">Create, update, and manage administrator, supply, sales, and cashier accounts with role-based access.</p>
     </div>
 </div>
 
@@ -12,13 +12,27 @@
             <div class="card-body">
                 <form method="POST" action="<?= e(base_url('users/store')) ?>">
                     <?= csrf_field() ?>
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <label class="form-label">First Name <span class="text-danger">*</span></label>
+                            <input class="form-control" name="first_name" value="<?= e((string) old('first_name')) ?>" placeholder="First name" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Middle Initial</label>
+                            <input class="form-control" name="middle_initial" maxlength="1" value="<?= e((string) old('middle_initial')) ?>" placeholder="M">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <input class="form-control" name="last_name" value="<?= e((string) old('last_name')) ?>" placeholder="Last name" required>
+                        </div>
+                    </div>
                     <div class="mb-2">
-                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
-                        <input class="form-control" name="name" placeholder="Full name" required>
+                        <label class="form-label">Contact</label>
+                        <input class="form-control" name="contact" value="<?= e((string) old('contact')) ?>" placeholder="Optional contact number">
                     </div>
                     <div class="mb-2">
                         <label class="form-label">Username <span class="text-danger">*</span></label>
-                        <input class="form-control" name="username" placeholder="Unique username" required>
+                        <input class="form-control" name="username" value="<?= e((string) old('username')) ?>" placeholder="Unique username" required>
                     </div>
                     <div class="mb-2">
                         <label class="form-label">Password <span class="text-danger">*</span></label>
@@ -27,8 +41,10 @@
                     <div class="mb-3">
                         <label class="form-label">Role</label>
                         <select name="role" class="form-select">
-                            <option value="Admin">Admin</option>
-                            <option value="Cashier">Cashier</option>
+                            <?php $selectedRole = (string) old('role', 'Admin'); ?>
+                            <?php foreach (available_roles() as $role): ?>
+                                <option value="<?= e($role) ?>" <?= $selectedRole === $role ? 'selected' : '' ?>><?= e($role) ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <button class="btn btn-primary w-100"><i class="fas fa-save"></i> Create User</button>
@@ -54,7 +70,7 @@
                             <td style="font-weight:700;font-size:.82rem"><?= e($user['name']) ?></td>
                             <td class="small-muted"><?= e($user['username']) ?></td>
                             <td>
-                                <span class="badge <?= $user['role'] === 'Admin' ? 'bg-soft-primary' : 'bg-soft-success' ?>">
+                                <span class="badge <?= e(role_badge_class($user['role'])) ?>">
                                     <?= e($user['role']) ?>
                                 </span>
                             </td>
@@ -77,15 +93,19 @@
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="id" value="<?= (int) $user['id'] ?>">
                                     <div class="row g-2">
-                                        <div class="col-md-4"><input class="form-control" name="name" value="<?= e($user['name']) ?>" placeholder="Full name" required></div>
-                                        <div class="col-md-3"><input class="form-control" name="username" value="<?= e($user['username']) ?>" placeholder="Username" required></div>
-                                        <div class="col-md-3">
+                                        <div class="col-md-3"><input class="form-control" name="first_name" value="<?= e((string) ($user['first_name'] ?? '')) ?>" placeholder="First name" required></div>
+                                        <div class="col-md-1"><input class="form-control" name="middle_initial" maxlength="1" value="<?= e((string) ($user['middle_initial'] ?? '')) ?>" placeholder="M"></div>
+                                        <div class="col-md-3"><input class="form-control" name="last_name" value="<?= e((string) ($user['last_name'] ?? '')) ?>" placeholder="Last name" required></div>
+                                        <div class="col-md-2"><input class="form-control" name="contact" value="<?= e((string) ($user['contact'] ?? '')) ?>" placeholder="Contact"></div>
+                                        <div class="col-md-2"><input class="form-control" name="username" value="<?= e($user['username']) ?>" placeholder="Username" required></div>
+                                        <div class="col-md-1">
                                             <select class="form-select" name="role">
-                                                <option <?= $user['role'] === 'Admin' ? 'selected' : '' ?>>Admin</option>
-                                                <option <?= $user['role'] === 'Cashier' ? 'selected' : '' ?>>Cashier</option>
+                                                <?php foreach (available_roles() as $role): ?>
+                                                    <option value="<?= e($role) ?>" <?= $user['role'] === $role ? 'selected' : '' ?>><?= e($role) ?></option>
+                                                <?php endforeach; ?>
                                             </select>
                                         </div>
-                                        <div class="col-md-2"><button class="btn btn-primary w-100">Save</button></div>
+                                        <div class="col-md-12"><button class="btn btn-primary">Save</button></div>
                                     </div>
                                 </form>
                             </td>

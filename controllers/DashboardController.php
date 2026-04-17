@@ -10,7 +10,7 @@ class DashboardController
 {
     public function index(): void
     {
-        require_auth();
+        require_module_access('dashboard');
 
         $dashboard = new Dashboard();
         $transactions = new Transaction();

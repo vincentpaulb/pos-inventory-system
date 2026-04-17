@@ -14,13 +14,15 @@ if (session_status() === PHP_SESSION_NONE) {
 date_default_timezone_set('Asia/Manila');
 
 define('DB_HOST', '127.0.0.1');
-define('DB_NAME', 'rb_heavy_inventory');
+define('DB_NAME', 'pos_inventory_system');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('APP_NAME', "R'B Heavy Equipment Parts Trading");
+define('APP_NAME', 'POS Inventory System');
 define('APP_URL', get_app_url());
 define('BASE_PATH', dirname(__DIR__));
-define('LOW_STOCK_THRESHOLD', 5);
+define('DEFAULT_VAT_RATE', 0.12);
+define('DEFAULT_LOW_STOCK_THRESHOLD', 5);
+define('LOW_STOCK_THRESHOLD', DEFAULT_LOW_STOCK_THRESHOLD);
 
 /**
  * Build the full base URL including scheme + host + sub-directory.

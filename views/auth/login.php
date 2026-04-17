@@ -1,9 +1,17 @@
+<?php
+$loginHeaderUrl = organization_header_url();
+?>
+
 <div class="login-grid">
     <div class="login-card-header-image">
-        <img
-            src="<?= e(base_url('public/images/header.png')) ?>"
-            alt="R'B Heavy Equipment Parts Trading"
-        >
+        <?php if ($loginHeaderUrl): ?>
+            <img
+                src="<?= e($loginHeaderUrl) ?>"
+                alt="<?= e(organization_name()) ?>"
+            >
+        <?php else: ?>
+            <div class="login-brand-fallback"><?= e(organization_name()) ?></div>
+        <?php endif; ?>
     </div>
     <section>
         <div class="login-card-wrap">

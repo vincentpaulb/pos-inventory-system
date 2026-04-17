@@ -17,7 +17,7 @@ class CategoryController
 
     public function index(): void
     {
-        require_auth();
+        require_module_access('categories');
 
         $search = clean_input($_GET['search'] ?? '');
         $categories = $this->categories->all($search);
@@ -38,7 +38,7 @@ class CategoryController
 
     public function store(): void
     {
-        require_auth();
+        require_module_access('categories');
         verify_csrf();
         $name = clean_input($_POST['name'] ?? '');
 
@@ -55,7 +55,7 @@ class CategoryController
 
     public function update(): void
     {
-        require_auth();
+        require_module_access('categories');
         verify_csrf();
         $id = (int) ($_POST['id'] ?? 0);
         $name = clean_input($_POST['name'] ?? '');
@@ -68,7 +68,7 @@ class CategoryController
 
     public function delete(): void
     {
-        require_role('Admin');
+        require_module_access('categories');
         verify_csrf();
         $id = (int) ($_POST['id'] ?? 0);
 

@@ -8,8 +8,11 @@ require_once BASE_PATH . '/controllers/CategoryController.php';
 require_once BASE_PATH . '/controllers/SupplierController.php';
 require_once BASE_PATH . '/controllers/UserController.php';
 require_once BASE_PATH . '/controllers/PosController.php';
+require_once BASE_PATH . '/controllers/ExpenseController.php';
 require_once BASE_PATH . '/controllers/QuotationController.php';
 require_once BASE_PATH . '/controllers/ReportController.php';
+require_once BASE_PATH . '/controllers/SetupController.php';
+require_once BASE_PATH . '/controllers/ActivityLogController.php';
 
 $path = trim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH), '/');
 $base = trim(parse_url(APP_URL, PHP_URL_PATH), '/');
@@ -18,11 +21,31 @@ if ($base !== '' && str_starts_with($path, $base)) {
     $path = trim(substr($path, strlen($base)), '/');
 }
 
-$path = $path === '' ? 'dashboard' : $path;
+$path = $path === ''
+    ? (is_logged_in() && organization_setup_step() === 'complete' ? authorized_home_route() : 'dashboard')
+    : $path;
+
+$setupRoutes = ['logout', 'setup', 'setup/organization', 'setup/admin'];
+
+if (is_logged_in()) {
+    $setupStep = organization_setup_step();
+
+    if ($setupStep !== 'complete' && !in_array($path, $setupRoutes, true)) {
+        redirect('setup/' . $setupStep);
+    }
+
+    if ($setupStep === 'complete' && ($path === 'setup' || str_starts_with($path, 'setup/'))) {
+        redirect(authorized_home_route());
+    }
+}
 
 $routes = [
     'login' => [AuthController::class, request_method() === 'POST' ? 'login' : 'showLogin'],
     'logout' => [AuthController::class, 'logout'],
+
+    'setup' => [SetupController::class, 'index'],
+    'setup/organization' => [SetupController::class, request_method() === 'POST' ? 'saveOrganization' : 'organizationForm'],
+    'setup/admin' => [SetupController::class, request_method() === 'POST' ? 'saveAdmin' : 'adminForm'],
 
     'dashboard' => [DashboardController::class, 'index'],
 
@@ -32,6 +55,7 @@ $routes = [
     'products/update' => [ProductController::class, 'update'],
     'products/delete' => [ProductController::class, 'delete'],
     'products/stock' => [ProductController::class, request_method() === 'POST' ? 'stockAdjust' : 'stockForm'],
+    'products/movements' => [ProductController::class, 'movements'],
 
     'categories' => [CategoryController::class, 'index'],
     'categories/store' => [CategoryController::class, 'store'],
@@ -49,6 +73,7 @@ $routes = [
     'users/reset-password' => [UserController::class, 'resetPassword'],
     'users/delete' => [UserController::class, 'delete'],
     'profile' => [UserController::class, request_method() === 'POST' ? 'updateProfile' : 'profile'],
+    'organization' => [SetupController::class, request_method() === 'POST' ? 'updateOrganization' : 'manage'],
 
     'pos' => [PosController::class, 'index'],
     'pos/search' => [PosController::class, 'searchProducts'],
@@ -56,6 +81,11 @@ $routes = [
     'pos/receipt' => [PosController::class, 'receipt'],
     'pos/void' => [PosController::class, 'voidSale'],
     'pos/delete' => [PosController::class, 'deleteSale'],
+    'pos/daily-report' => [PosController::class, request_method() === 'POST' ? 'submitDailyReport' : 'previewDailyReport'],
+
+    'expenses' => [ExpenseController::class, 'index'],
+    'expenses/cash-on-hand' => [ExpenseController::class, 'saveCashOnHand'],
+    'expenses/store' => [ExpenseController::class, 'store'],
 
     'quotations' => [QuotationController::class, 'index'],
     'quotations/search' => [QuotationController::class, 'searchProducts'],
@@ -66,7 +96,12 @@ $routes = [
     'quotations/view' => [QuotationController::class, 'view'],
 
     'reports' => [ReportController::class, 'index'],
+    'my-reports' => [ReportController::class, 'myReports'],
+    'activity-logs' => [ActivityLogController::class, 'index'],
     'reports/export' => [ReportController::class, 'exportCsv'],
+    'reports/delete-dsr' => [ReportController::class, 'deleteDailyReport'],
+    'reports/export-dsr' => [ReportController::class, 'exportDailyReportsCsv'],
+    'reports/daily-report' => [ReportController::class, 'viewDailyReport'],
 ];
 
 if (!isset($routes[$path])) {

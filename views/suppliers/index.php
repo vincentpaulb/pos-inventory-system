@@ -1,4 +1,4 @@
-<?php $canDeleteSuppliers = has_role('Admin'); ?>
+<?php $canDeleteSuppliers = can_access_module('suppliers'); ?>
 
 <div class="page-header">
     <div class="page-header-left">
@@ -74,7 +74,7 @@
                             <td>
                                 <div class="action-group">
                                     <button class="btn btn-sm btn-outline-success btn-icon" data-bs-toggle="collapse" data-bs-target="#sup<?= (int) $supplier['id'] ?>" title="Edit supplier" aria-label="Edit supplier"><i class="fas fa-pen"></i></button>
-                                    <?php if (has_role('Admin')): ?>
+                                    <?php if ($canDeleteSuppliers): ?>
                                     <form method="POST" action="<?= e(base_url('suppliers/delete')) ?>" class="js-confirm-form" data-confirm-message="Delete this supplier?" data-confirm-button="Delete">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="id" value="<?= (int) $supplier['id'] ?>">

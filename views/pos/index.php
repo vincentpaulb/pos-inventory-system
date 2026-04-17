@@ -1,4 +1,6 @@
 <?php
+$vatLabel = system_vat_label();
+$vatRate = system_vat_rate();
 $jsProducts = json_encode(array_map(function ($p) {
     return [
         'id' => (int) $p['id'],
@@ -19,6 +21,9 @@ $jsProducts = json_encode(array_map(function ($p) {
     <div class="page-header-actions">
         <div class="topbar-chip"><i class="fas fa-shopping-bag"></i> <?= count($products) ?> products available</div>
         <div class="topbar-chip"><i class="fas fa-receipt"></i> VAT ready</div>
+        <button type="button" class="btn btn-primary btn-sm pos-header-action-btn" id="btnDailySalesReport">
+            <i class="fas fa-file-lines"></i> Daily Sales Report
+        </button>
     </div>
 </div>
 
@@ -114,7 +119,7 @@ $jsProducts = json_encode(array_map(function ($p) {
                             <span id="cartNetPrice" style="font-weight:600">&#8369;0.00</span>
                         </div>
                         <div class="pos-summary-row">
-                            <span>VAT 12%</span>
+                            <span><?= e($vatLabel) ?></span>
                             <span id="cartVatAmount" style="font-weight:600">&#8369;0.00</span>
                         </div>
                         <hr style="border-color:var(--border);margin:10px 0">
@@ -274,7 +279,7 @@ $jsProducts = json_encode(array_map(function ($p) {
 
 <script>
 (function () {
-    var VAT_RATE = 0.12;
+    var VAT_RATE = <?= json_encode($vatRate) ?>;
     var ALL_PRODUCTS = <?= $jsProducts ?>;
     var SEARCH_URL = <?= json_encode(base_url('pos/search')) ?>;
     var cart = [];
@@ -563,5 +568,158 @@ $jsProducts = json_encode(array_map(function ($p) {
     renderGrid(ALL_PRODUCTS);
     syncPaymentReferenceVisibility();
     renderCart();
+})();
+</script>
+
+<!-- Daily Sales Report Modal -->
+<div class="modal fade" id="dailySalesReportModal" tabindex="-1" aria-labelledby="dsrModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dsrModalLabel"><i class="fas fa-file-lines"></i> Daily Sales Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="dsrModalBody">
+                <div class="text-center py-5 text-muted" id="dsrLoading">
+                    <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>Loading report data...
+                </div>
+                <div id="dsrContent" style="display:none"></div>
+            </div>
+            <div class="modal-footer" id="dsrModalFooter" style="display:none">
+                <form method="POST" action="<?= e(base_url('pos/daily-report')) ?>" id="dsrSubmitForm">
+                    <?= csrf_field() ?>
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <div style="flex:1;min-width:220px">
+                            <input type="text" class="form-control form-control-sm" name="notes"
+                                placeholder="Optional notes for this report..."
+                                style="font-size:.82rem">
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Submit Report
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var DSR_PREVIEW_URL = <?= json_encode(base_url('pos/daily-report')) ?>;
+    var VAT_LABEL = <?= json_encode($vatLabel) ?>;
+
+    function fmt(n) {
+        return '\u20b1' + Number(n || 0).toLocaleString('en-PH', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2
+        });
+    }
+
+    function escHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function buildReportHtml(d) {
+        var now = new Date();
+        var timeStr = now.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        var productsRows = '';
+        if (d.products && d.products.length) {
+            d.products.forEach(function (p) {
+                productsRows +=
+                    '<tr>' +
+                    '<td>' + escHtml(p.name) + '</td>' +
+                    '<td class="text-center">' + escHtml(p.unit_type) + '</td>' +
+                    '<td class="text-center">' + escHtml(p.qty_sold) + '</td>' +
+                    '<td class="text-end">' + fmt(p.total_revenue) + '</td>' +
+                    '</tr>';
+            });
+        } else {
+            productsRows = '<tr><td colspan="4" class="text-center text-muted py-3" style="font-size:.82rem">No sales recorded today.</td></tr>';
+        }
+
+        return '<div style="font-size:.82rem">' +
+
+            '<div class="card mb-3"><div class="card-header"><i class="fas fa-circle-info"></i> Header Information</div>' +
+            '<div class="card-body"><div class="row g-2">' +
+            '<div class="col-md-4"><span class="text-muted">Report Date</span><div style="font-weight:700">' + escHtml(d.report_date) + '</div></div>' +
+            '<div class="col-md-4"><span class="text-muted">Employee</span><div style="font-weight:700">' + escHtml(d.employee_name) + ' (ID #' + escHtml(d.employee_id) + ')</div></div>' +
+            '<div class="col-md-4"><span class="text-muted">Submission Time</span><div style="font-weight:700">' + timeStr + '</div></div>' +
+            '</div></div></div>' +
+
+            '<div class="row g-3 mb-3">' +
+            '<div class="col-md-6"><div class="card h-100"><div class="card-header"><i class="fas fa-chart-bar"></i> Sales Performance</div>' +
+            '<div class="card-body"><table class="table table-sm mb-0">' +
+            '<tr><td class="text-muted">Total Transactions</td><td class="text-end fw-bold">' + escHtml(d.total_transactions) + '</td></tr>' +
+            '<tr><td class="text-muted">Total Units Sold</td><td class="text-end fw-bold">' + escHtml(d.total_units_sold) + '</td></tr>' +
+            '<tr><td class="text-muted">Gross Sales</td><td class="text-end fw-bold">' + fmt(d.gross_sales) + '</td></tr>' +
+            '<tr><td class="text-muted">Net Sales (excl. ' + escHtml(VAT_LABEL) + ')</td><td class="text-end fw-bold">' + fmt(d.net_sales) + '</td></tr>' +
+            '<tr><td class="text-muted">' + escHtml(VAT_LABEL) + ' Collected</td><td class="text-end fw-bold">' + fmt(d.vat_collected) + '</td></tr>' +
+            '<tr><td class="text-muted">Avg Transaction Value</td><td class="text-end fw-bold">' + fmt(d.average_transaction_value) + '</td></tr>' +
+            '</table></div></div></div>' +
+
+            '<div class="col-md-6"><div class="card h-100"><div class="card-header"><i class="fas fa-credit-card"></i> Payment Breakdown</div>' +
+            '<div class="card-body"><table class="table table-sm mb-0">' +
+            '<tr><td class="text-muted">Cash</td><td class="text-end fw-bold">' + fmt(d.cash_sales) + '</td></tr>' +
+            '<tr><td class="text-muted">Credit Card</td><td class="text-end fw-bold">' + fmt(d.credit_card_sales) + '</td></tr>' +
+            '<tr><td class="text-muted">GCash / Maya</td><td class="text-end fw-bold">' + fmt(d.gcash_maya_sales) + '</td></tr>' +
+            '<tr><td class="text-muted">Bank Transfer</td><td class="text-end fw-bold">' + fmt(d.bank_transfer_sales) + '</td></tr>' +
+            '</table></div></div></div>' +
+            '</div>' +
+
+            '<div class="row g-3 mb-3">' +
+            '<div class="col-md-6"><div class="card h-100"><div class="card-header"><i class="fas fa-rotate-left"></i> Adjustments &amp; Tax</div>' +
+            '<div class="card-body"><table class="table table-sm mb-0">' +
+            '<tr><td class="text-muted">Voided Transactions</td><td class="text-end fw-bold">' + escHtml(d.total_voids) + '</td></tr>' +
+            '<tr><td class="text-muted">Voided Amount</td><td class="text-end fw-bold text-warning">' + fmt(d.voided_amount) + '</td></tr>' +
+            '<tr><td class="text-muted">Discounts Applied</td><td class="text-end fw-bold">N/A</td></tr>' +
+            '<tr><td class="text-muted">Total ' + escHtml(VAT_LABEL) + '</td><td class="text-end fw-bold">' + fmt(d.vat_collected) + '</td></tr>' +
+            '</table></div></div></div>' +
+
+            '<div class="col-md-6"><div class="card h-100"><div class="card-header"><i class="fas fa-money-bill-wave"></i> Financial Summary</div>' +
+            '<div class="card-body"><table class="table table-sm mb-0">' +
+            '<tr><td class="text-muted">Total Daily Expenses</td><td class="text-end fw-bold text-danger">' + fmt(d.total_expenses) + '</td></tr>' +
+            '<tr><td class="text-muted">Stock Units Deducted</td><td class="text-end fw-bold">' + escHtml(d.total_units_sold) + ' units</td></tr>' +
+            '<tr><td class="text-muted">Net Revenue (after expenses)</td><td class="text-end fw-bold text-success">' + fmt(Math.max(0, d.gross_sales - d.total_expenses)) + '</td></tr>' +
+            '</table></div></div></div>' +
+            '</div>' +
+
+            '<div class="card"><div class="card-header"><i class="fas fa-list"></i> Items Sold Today</div>' +
+            '<div class="table-responsive"><table class="table table-sm mb-0">' +
+            '<thead><tr><th>Product</th><th class="text-center">Unit</th><th class="text-center">Qty Sold</th><th class="text-end">Revenue</th></tr></thead>' +
+            '<tbody>' + productsRows + '</tbody>' +
+            '</table></div></div>' +
+
+            '</div>';
+    }
+
+    document.getElementById('btnDailySalesReport').addEventListener('click', function () {
+        var modal = new bootstrap.Modal(document.getElementById('dailySalesReportModal'));
+        var loadingEl = document.getElementById('dsrLoading');
+        var contentEl = document.getElementById('dsrContent');
+        var footerEl  = document.getElementById('dsrModalFooter');
+
+        loadingEl.style.display = '';
+        contentEl.style.display = 'none';
+        contentEl.innerHTML = '';
+        footerEl.style.display = 'none';
+
+        modal.show();
+
+        fetch(DSR_PREVIEW_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                loadingEl.style.display = 'none';
+                contentEl.innerHTML = buildReportHtml(data);
+                contentEl.style.display = '';
+                footerEl.style.display = '';
+            })
+            .catch(function () {
+                loadingEl.innerHTML = '<i class="fas fa-triangle-exclamation fa-2x text-danger mb-2"></i><br>Failed to load report data.';
+            });
+    });
 })();
 </script>

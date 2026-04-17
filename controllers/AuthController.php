@@ -18,7 +18,7 @@ class AuthController
     public function showLogin(): void
     {
         if (is_logged_in()) {
-            redirect('dashboard');
+            redirect(organization_is_setup_complete() ? authorized_home_route() : 'setup');
         }
         view('auth/login', ['title' => 'Login'], 'guest');
     }
@@ -56,13 +56,15 @@ class AuthController
 
         $this->logs->log((int) $user['id'], 'login', 'User logged in.');
         flash('success', 'Welcome back, ' . $user['name'] . '!');
-        redirect('dashboard');
+        redirect(organization_is_setup_complete() ? authorized_home_route($user['role']) : 'setup');
     }
 
     public function logout(): void
     {
         if (is_logged_in()) {
-            $this->logs->log((int) auth_user()['id'], 'logout', 'User logged out.');
+            $currentUser = auth_user();
+            $existingUser = $currentUser ? $this->users->find((int) $currentUser['id']) : null;
+            $this->logs->log($existingUser ? (int) $existingUser['id'] : null, 'logout', 'User logged out.');
         }
         logout_user();
         redirect('login');

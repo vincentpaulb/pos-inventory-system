@@ -4,6 +4,8 @@ declare(strict_types=1);
 require_once BASE_PATH . '/models/Product.php';
 require_once BASE_PATH . '/models/Transaction.php';
 require_once BASE_PATH . '/models/ActivityLog.php';
+require_once BASE_PATH . '/models/DailySalesReport.php';
+require_once BASE_PATH . '/models/Expense.php';
 
 class PosController
 {
@@ -14,17 +16,21 @@ class PosController
     private Product $products;
     private Transaction $transactions;
     private ActivityLog $logs;
+    private DailySalesReport $dailyReports;
+    private Expense $expenses;
 
     public function __construct()
     {
         $this->products = new Product();
         $this->transactions = new Transaction();
         $this->logs = new ActivityLog();
+        $this->dailyReports = new DailySalesReport();
+        $this->expenses = new Expense();
     }
 
     public function index(): void
     {
-        require_auth();
+        require_module_access('pos');
         $historySearch = clean_input($_GET['history_search'] ?? '');
         $purchaseHistory = $this->transactions->purchaseHistory(20, $historySearch);
 
@@ -69,6 +75,13 @@ class PosController
             exit;
         }
 
+        if (!can_access_module('pos')) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['error' => 'Forbidden']);
+            exit;
+        }
+
         $search = trim((string) ($_GET['search'] ?? ''));
         $products = $this->products->allForPos($search);
 
@@ -83,7 +96,7 @@ class PosController
 
     public function checkout(): void
     {
-        require_auth();
+        require_module_access('pos');
         verify_csrf();
 
         $rawItems = $_POST['items'] ?? '';
@@ -206,7 +219,7 @@ class PosController
 
     public function receipt(): void
     {
-        require_auth();
+        require_module_access('pos');
         $id = (int) ($_GET['id'] ?? 0);
         $transaction = $this->transactions->find($id);
 
@@ -225,7 +238,7 @@ class PosController
 
     public function voidSale(): void
     {
-        require_auth();
+        require_module_access('pos');
         verify_csrf();
 
         $transactionId = (int) ($_POST['id'] ?? 0);
@@ -250,7 +263,7 @@ class PosController
 
     public function deleteSale(): void
     {
-        require_auth();
+        require_module_access('pos');
         verify_csrf();
 
         $transactionId = (int) ($_POST['id'] ?? 0);
@@ -271,5 +284,72 @@ class PosController
         $this->logs->log((int) auth_user()['id'], 'sale_delete', 'Deleted voided sale ' . $transaction['invoice_no']);
         flash('success', 'Transaction deleted successfully.');
         redirect('pos');
+    }
+
+    public function previewDailyReport(): void
+    {
+        require_module_access('pos');
+
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $userId = (int) auth_user()['id'];
+        $date   = date('Y-m-d');
+
+        $data                   = $this->dailyReports->getSalesData($userId, $date);
+        $expenseSummary         = $this->expenses->summaryForDate($date, $userId);
+        $data['total_expenses'] = $expenseSummary['total_amount'];
+        $data['report_date']    = $date;
+        $data['employee_name']  = auth_user()['name'];
+        $data['employee_id']    = $userId;
+
+        http_response_code(200);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    public function submitDailyReport(): void
+    {
+        require_module_access('pos');
+        verify_csrf();
+
+        $userId = (int) auth_user()['id'];
+        $date   = date('Y-m-d');
+        $notes  = clean_input($_POST['notes'] ?? '');
+
+        $data           = $this->dailyReports->getSalesData($userId, $date);
+        $expenseSummary = $this->expenses->summaryForDate($date, $userId);
+
+        $reportId = $this->dailyReports->create([
+            'user_id'                   => $userId,
+            'report_date'               => $date,
+            'total_transactions'        => $data['total_transactions'],
+            'total_units_sold'          => $data['total_units_sold'],
+            'gross_sales'               => $data['gross_sales'],
+            'net_sales'                 => $data['net_sales'],
+            'vat_collected'             => $data['vat_collected'],
+            'average_transaction_value' => $data['average_transaction_value'],
+            'cash_sales'                => $data['cash_sales'],
+            'credit_card_sales'         => $data['credit_card_sales'],
+            'gcash_maya_sales'          => $data['gcash_maya_sales'],
+            'bank_transfer_sales'       => $data['bank_transfer_sales'],
+            'total_voids'               => $data['total_voids'],
+            'voided_amount'             => $data['voided_amount'],
+            'total_expenses'            => $expenseSummary['total_amount'],
+            'notes'                     => $notes,
+        ]);
+
+        if (!$reportId) {
+            flash('error', 'Failed to submit daily sales report. Please try again.');
+            redirect('pos');
+            return;
+        }
+
+        $this->logs->log($userId, 'daily_report_submit', 'Submitted daily sales report for ' . $date);
+        flash('success', 'Daily Sales Report submitted successfully.');
+        redirect('reports');
     }
 }

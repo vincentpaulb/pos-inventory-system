@@ -1,6 +1,11 @@
 <?php
 $user = auth_user();
-function is_active_menu(string $needle): bool {
+$organizationName = organization_name();
+$organizationLogoUrl = organization_logo_url();
+$currentRole = current_role();
+
+function is_active_menu(string $needle): bool
+{
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
     $base = trim(parse_url(APP_URL, PHP_URL_PATH) ?? '', '/');
 
@@ -18,11 +23,9 @@ function is_active_menu(string $needle): bool {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($title ?? APP_NAME) ?> — <?= e(APP_NAME) ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.2/css/all.min.css">
+    <title><?= e($title ?? $organizationName) ?> - <?= e($organizationName) ?></title>
+    <link rel="stylesheet" href="<?= e(base_url('public/vendor/bootstrap/css/bootstrap.min.css')) ?>">
+    <link rel="stylesheet" href="<?= e(base_url('public/vendor/fontawesome-free-7.2.0-web/css/all.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(base_url('public/css/app.css')) ?>">
 </head>
 <body>
@@ -32,14 +35,18 @@ function is_active_menu(string $needle): bool {
         <div class="sidebar-inner">
             <div class="brand-block">
                 <div class="brand-mark">
-                    <img
-                        class="brand-logo"
-                        src="<?= e(base_url('public/images/logo_inversed.png')) ?>"
-                        alt="R'B Heavy Equipment Parts Trading logo"
-                    >
+                    <?php if ($organizationLogoUrl): ?>
+                        <img
+                            class="brand-logo"
+                            src="<?= e($organizationLogoUrl) ?>"
+                            alt="<?= e($organizationName) ?> logo"
+                        >
+                    <?php else: ?>
+                        <span class="brand-logo-fallback"><?= e(organization_initials()) ?></span>
+                    <?php endif; ?>
                 </div>
                 <div class="brand-copy">
-                    <p class="brand-title">R'B Heavy Equipment<br>Parts Trading</p>
+                    <p class="brand-title"><?= nl2br(e($organizationName)) ?></p>
                 </div>
                 <button
                     class="sidebar-collapse-btn"
@@ -55,29 +62,78 @@ function is_active_menu(string $needle): bool {
 
             <div class="sidebar-section-label">Operations</div>
             <nav class="nav flex-column">
-                <a class="nav-link <?= is_active_menu('dashboard') ? 'active' : '' ?>" href="<?= e(base_url('dashboard')) ?>" title="Dashboard" aria-label="Dashboard">
-                    <span class="nav-icon"><i class="fas fa-chart-line"></i></span> Dashboard
-                </a>
-                <a class="nav-link <?= is_active_menu('pos') ? 'active' : '' ?>" href="<?= e(base_url('pos')) ?>" title="Point of Sale" aria-label="Point of Sale">
-                    <span class="nav-icon"><i class="fas fa-cash-register"></i></span> Point of Sale
-                </a>
-                <a class="nav-link <?= is_active_menu('products') ? 'active' : '' ?>" href="<?= e(base_url('products')) ?>" title="Inventory" aria-label="Inventory">
-                    <span class="nav-icon"><i class="fas fa-cube"></i></span> Inventory
-                </a>
-                <a class="nav-link <?= is_active_menu('categories') ? 'active' : '' ?>" href="<?= e(base_url('categories')) ?>" title="Categories" aria-label="Categories">
-                    <span class="nav-icon"><i class="fas fa-folder-open"></i></span> Categories
-                </a>
-                <a class="nav-link <?= is_active_menu('suppliers') ? 'active' : '' ?>" href="<?= e(base_url('suppliers')) ?>" title="Suppliers" aria-label="Suppliers">
-                    <span class="nav-icon"><i class="fas fa-industry"></i></span> Suppliers
-                </a>
-                <a class="nav-link <?= is_active_menu('quotations') ? 'active' : '' ?>" href="<?= e(base_url('quotations')) ?>" title="Quotations" aria-label="Quotations">
-                    <span class="nav-icon"><i class="fas fa-receipt"></i></span> Quotations
-                </a>
-                <a class="nav-link <?= is_active_menu('reports') ? 'active' : '' ?>" href="<?= e(base_url('reports')) ?>" title="Sales Reports" aria-label="Sales Reports">
-                    <span class="nav-icon"><i class="fas fa-chart-bar"></i></span> Sales Reports
-                </a>
+                <?php if (can_access_module('dashboard')): ?>
+                    <a class="nav-link <?= is_active_menu('dashboard') ? 'active' : '' ?>" href="<?= e(base_url('dashboard')) ?>" title="Dashboard" aria-label="Dashboard">
+                        <span class="nav-icon"><i class="fas fa-chart-line"></i></span> Dashboard
+                    </a>
+                <?php endif; ?>
+                <?php if (can_access_module('pos')): ?>
+                    <a class="nav-link <?= is_active_menu('pos') ? 'active' : '' ?>" href="<?= e(base_url('pos')) ?>" title="Point of Sale" aria-label="Point of Sale">
+                        <span class="nav-icon"><i class="fas fa-cash-register"></i></span> Point of Sale
+                    </a>
+                <?php endif; ?>
+                <?php if (can_access_module('expenses')): ?>
+                    <a class="nav-link <?= is_active_menu('expenses') ? 'active' : '' ?>" href="<?= e(base_url('expenses')) ?>" title="Expenses" aria-label="Expenses">
+                        <span class="nav-icon"><i class="fas fa-wallet"></i></span> Expenses
+                    </a>
+                <?php endif; ?>
+                <?php if (can_access_module('products')): ?>
+                <?php $inventoryActive = is_active_menu('products'); ?>
+                <div class="nav-item-group <?= $inventoryActive ? 'is-open' : '' ?>">
+                    <a class="nav-link <?= $inventoryActive ? 'active' : '' ?>" href="<?= e(base_url('products')) ?>" title="Inventory" aria-label="Inventory">
+                        <span class="nav-icon"><i class="fas fa-cube"></i></span>
+                        Inventory
+                        <i class="fas fa-chevron-right nav-chevron"></i>
+                    </a>
+                    <div class="nav-sub">
+                        <a class="nav-sub-link <?= is_active_menu('products') && !is_active_menu('products/movements') ? 'active' : '' ?>"
+                           href="<?= e(base_url('products')) ?>" title="Products" aria-label="Products">
+                            <i class="fas fa-box" style="font-size:.7rem;width:12px"></i> Products
+                        </a>
+                        <?php if (can_access_module('stock-movements')): ?>
+                        <a class="nav-sub-link <?= is_active_menu('products/movements') ? 'active' : '' ?>"
+                           href="<?= e(base_url('products/movements')) ?>" title="Stock Movements" aria-label="Stock Movements">
+                            <i class="fas fa-arrows-up-down" style="font-size:.7rem;width:12px"></i> Stock Movements
+                        </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <?php if (can_access_module('categories')): ?>
+                    <a class="nav-link <?= is_active_menu('categories') ? 'active' : '' ?>" href="<?= e(base_url('categories')) ?>" title="Categories" aria-label="Categories">
+                        <span class="nav-icon"><i class="fas fa-folder-open"></i></span> Categories
+                    </a>
+                <?php endif; ?>
+                <?php if (can_access_module('suppliers')): ?>
+                    <a class="nav-link <?= is_active_menu('suppliers') ? 'active' : '' ?>" href="<?= e(base_url('suppliers')) ?>" title="Suppliers" aria-label="Suppliers">
+                        <span class="nav-icon"><i class="fas fa-industry"></i></span> Suppliers
+                    </a>
+                <?php endif; ?>
+                <?php if (can_access_module('quotations')): ?>
+                    <a class="nav-link <?= is_active_menu('quotations') ? 'active' : '' ?>" href="<?= e(base_url('quotations')) ?>" title="Quotations" aria-label="Quotations">
+                        <span class="nav-icon"><i class="fas fa-receipt"></i></span> Quotations
+                    </a>
+                <?php endif; ?>
+                <?php if (can_access_module('reports')): ?>
+                    <a class="nav-link <?= is_active_menu('reports') ? 'active' : '' ?>" href="<?= e(base_url('reports')) ?>" title="Sales Reports" aria-label="Sales Reports">
+                        <span class="nav-icon"><i class="fas fa-chart-bar"></i></span> Sales Reports
+                    </a>
+                <?php endif; ?>
+                <?php if (can_access_module('my-reports')): ?>
+                    <a class="nav-link <?= is_active_menu('my-reports') ? 'active' : '' ?>" href="<?= e(base_url('my-reports')) ?>" title="Daily Sales Reports" aria-label="Daily Sales Reports">
+                        <span class="nav-icon"><i class="fas fa-file-lines"></i></span> Daily Sales Reports
+                    </a>
+                <?php endif; ?>
+                <?php if (can_access_module('activity-logs')): ?>
+                    <a class="nav-link <?= is_active_menu('activity-logs') ? 'active' : '' ?>" href="<?= e(base_url('activity-logs')) ?>" title="Activity Logs" aria-label="Activity Logs">
+                        <span class="nav-icon"><i class="fas fa-list-check"></i></span> Activity Logs
+                    </a>
+                <?php endif; ?>
                 <?php if (has_role('Admin')): ?>
                     <div class="sidebar-section-label">Administration</div>
+                    <a class="nav-link <?= is_active_menu('organization') ? 'active' : '' ?>" href="<?= e(base_url('organization')) ?>" title="Organization Info" aria-label="Organization Info">
+                        <span class="nav-icon"><i class="fas fa-building"></i></span> Organization Info
+                    </a>
                     <a class="nav-link <?= is_active_menu('users') ? 'active' : '' ?>" href="<?= e(base_url('users')) ?>" title="User Management" aria-label="User Management">
                         <span class="nav-icon"><i class="fas fa-users"></i></span> User Management
                     </a>
@@ -106,7 +162,7 @@ function is_active_menu(string $needle): bool {
     </aside>
 
     <main class="content">
-            <div class="topbar">
+        <div class="topbar">
             <div class="topbar-left">
                 <button class="mobile-menu-btn" id="sidebarToggleButton" type="button" aria-label="Toggle sidebar" title="Toggle sidebar"><i class="fas fa-bars"></i></button>
                 <button class="topbar-sidebar-btn" id="sidebarExpandButton" type="button" aria-label="Show sidebar" title="Show sidebar">
@@ -115,7 +171,7 @@ function is_active_menu(string $needle): bool {
                 </button>
                 <div>
                     <div class="topbar-title"><?= e($title ?? 'Dashboard') ?></div>
-                    <div class="topbar-subtitle">Light mode default admin workspace</div>
+                    <div class="topbar-subtitle"><?= e($currentRole ? $currentRole . ' workspace' : 'Workspace') ?></div>
                 </div>
             </div>
             <div class="topbar-actions">
@@ -135,6 +191,72 @@ function is_active_menu(string $needle): bool {
 
             <?php if ($message = flash('error')): ?>
                 <div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> <?= e($message) ?></div>
+            <?php endif; ?>
+
+            <?php if (can_access_module('products')): ?>
+                <?php
+                    require_once BASE_PATH . '/models/Product.php';
+                    $__lowStockItems = (new Product())->lowStock();
+                    $__lowCount = count($__lowStockItems);
+                    if ($__lowCount > 0):
+                        $__critical = array_filter($__lowStockItems, fn($p) => (int)$p['stock_quantity'] === 0);
+                        $__isCritical = count($__critical) > 0;
+                ?>
+                <div class="low-stock-toast <?= $__isCritical ? 'low-stock-toast--critical' : '' ?>" id="lowStockToast">
+                    <div class="low-stock-toast-header">
+                        <span class="low-stock-toast-icon">
+                            <i class="fas fa-triangle-exclamation"></i>
+                        </span>
+                        <div class="low-stock-toast-title">
+                            <strong>Low Stock Alert</strong>
+                            <span class="low-stock-toast-count"><?= $__lowCount ?> item<?= $__lowCount > 1 ? 's' : '' ?></span>
+                        </div>
+                        <button class="low-stock-toast-close" onclick="dismissLowStockToast()" aria-label="Dismiss">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+                    <ul class="low-stock-toast-list">
+                        <?php foreach (array_slice($__lowStockItems, 0, 5) as $__p): ?>
+                            <li>
+                                <span class="low-stock-toast-name"><?= e($__p['name']) ?></span>
+                                <span class="low-stock-toast-qty <?= (int)$__p['stock_quantity'] === 0 ? 'qty-zero' : '' ?>">
+                                    <?= (int)$__p['stock_quantity'] ?> left
+                                </span>
+                            </li>
+                        <?php endforeach; ?>
+                        <?php if ($__lowCount > 5): ?>
+                            <li class="low-stock-toast-more">+<?= $__lowCount - 5 ?> more...</li>
+                        <?php endif; ?>
+                    </ul>
+                    <label class="low-stock-toast-snooze">
+                        <input type="checkbox" id="lowStockSnooze"> Do not show this for today
+                    </label>
+                    <a href="<?= e(base_url('products')) ?>" class="low-stock-toast-btn">
+                        <i class="fas fa-arrow-right"></i> View Inventory
+                    </a>
+                </div>
+                <script>
+                    (function() {
+                        var today = new Date().toISOString().slice(0, 10);
+                        if (localStorage.getItem('lowStockSnoozed') === today) {
+                            var t = document.getElementById('lowStockToast');
+                            if (t) t.style.display = 'none';
+                        }
+                    })();
+                    function dismissLowStockToast() {
+                        var t = document.getElementById('lowStockToast');
+                        if (!t) return;
+                        if (document.getElementById('lowStockSnooze').checked) {
+                            var today = new Date().toISOString().slice(0, 10);
+                            localStorage.setItem('lowStockSnoozed', today);
+                        }
+                        t.classList.add('is-hiding');
+                        setTimeout(function() { t.style.display = 'none'; }, 400);
+                    }
+                    setTimeout(dismissLowStockToast, 10000);
+                </script>
+
+                <?php endif; ?>
             <?php endif; ?>
 
             <?php require $contentView; ?>
@@ -161,6 +283,6 @@ function is_active_menu(string $needle): bool {
 </div>
 
 <script src="<?= e(base_url('public/js/app.js')) ?>"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= e(base_url('public/vendor/bootstrap/js/bootstrap.bundle.min.js')) ?>"></script>
 </body>
 </html>

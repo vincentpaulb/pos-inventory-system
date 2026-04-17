@@ -221,6 +221,9 @@ $monthlyChart = $buildLineChart($monthlySalesSeries);
 <div class="card mt-4">
     <div class="card-header">
         <span><i class="fas fa-history"></i> Recent Activity Logs</span>
+        <a class="btn btn-outline-primary btn-sm btn-icon" href="<?= e(base_url('activity-logs')) ?>" title="View all logs" aria-label="View all logs">
+            <i class="fas fa-arrow-up-right-from-square"></i>
+        </a>
     </div>
     <div class="table-responsive">
         <table class="table align-middle">

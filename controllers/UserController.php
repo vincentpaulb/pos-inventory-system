@@ -39,6 +39,7 @@ class UserController
         view('users/profile', [
             'title' => 'My Profile',
             'user' => $user,
+            'canEditProfile' => has_role(['Admin', 'Sales Manager']),
         ]);
     }
 
@@ -48,14 +49,24 @@ class UserController
         verify_csrf();
 
         $data = [
-            'name' => clean_input($_POST['name'] ?? ''),
+            'first_name' => clean_input($_POST['first_name'] ?? ''),
+            'middle_initial' => clean_input($_POST['middle_initial'] ?? ''),
+            'last_name' => clean_input($_POST['last_name'] ?? ''),
+            'contact' => clean_input($_POST['contact'] ?? ''),
             'username' => clean_input($_POST['username'] ?? ''),
             'password' => $_POST['password'] ?? '',
             'role' => clean_input($_POST['role'] ?? 'Cashier'),
         ];
 
-        if ($data['name'] === '' || $data['username'] === '' || $data['password'] === '') {
-            flash('error', 'Name, username, password, and role are required.');
+        set_old($data);
+
+        if ($data['first_name'] === '' || $data['last_name'] === '' || $data['username'] === '' || $data['password'] === '') {
+            flash('error', 'First name, last name, username, password, and role are required.');
+            redirect('users');
+        }
+
+        if (!is_valid_role($data['role'])) {
+            flash('error', 'Selected role is invalid.');
             redirect('users');
         }
 
@@ -65,6 +76,7 @@ class UserController
         }
 
         $this->users->create($data);
+        clear_old();
         $this->logs->log((int) auth_user()['id'], 'user_create', 'Created user: ' . $data['username']);
 
         flash('success', 'User created successfully.');
@@ -78,10 +90,23 @@ class UserController
 
         $id = (int) ($_POST['id'] ?? 0);
         $data = [
-            'name' => clean_input($_POST['name'] ?? ''),
+            'first_name' => clean_input($_POST['first_name'] ?? ''),
+            'middle_initial' => clean_input($_POST['middle_initial'] ?? ''),
+            'last_name' => clean_input($_POST['last_name'] ?? ''),
+            'contact' => clean_input($_POST['contact'] ?? ''),
             'username' => clean_input($_POST['username'] ?? ''),
             'role' => clean_input($_POST['role'] ?? 'Cashier'),
         ];
+
+        if ($data['first_name'] === '' || $data['last_name'] === '' || $data['username'] === '') {
+            flash('error', 'First name, last name, username, and role are required.');
+            redirect('users');
+        }
+
+        if (!is_valid_role($data['role'])) {
+            flash('error', 'Selected role is invalid.');
+            redirect('users');
+        }
 
         if ($this->users->usernameExists($data['username'], $id)) {
             flash('error', 'Username already exists.');
@@ -89,10 +114,22 @@ class UserController
         }
 
         $this->users->update($id, $data);
+        $isCurrentUser = (int) auth_user()['id'] === $id;
+
+        if ($isCurrentUser) {
+            $updatedUser = $this->users->find($id);
+
+            if ($updatedUser !== null) {
+                $_SESSION['user']['name'] = $updatedUser['name'];
+                $_SESSION['user']['username'] = $updatedUser['username'];
+                $_SESSION['user']['role'] = $updatedUser['role'];
+            }
+        }
+
         $this->logs->log((int) auth_user()['id'], 'user_update', 'Updated user ID: ' . $id);
 
         flash('success', 'User updated successfully.');
-        redirect('users');
+        redirect($isCurrentUser && !has_role('Admin') ? authorized_home_route($data['role']) : 'users');
     }
 
     public function resetPassword(): void
@@ -135,22 +172,27 @@ class UserController
 
     public function updateProfile(): void
     {
-        require_auth();
+        require_role(['Admin', 'Sales Manager']);
         verify_csrf();
 
         $currentUser = auth_user();
         $id = (int) $currentUser['id'];
-        $name = clean_input($_POST['name'] ?? '');
-        $username = clean_input($_POST['username'] ?? '');
+        $data = [
+            'first_name' => clean_input($_POST['first_name'] ?? ''),
+            'middle_initial' => clean_input($_POST['middle_initial'] ?? ''),
+            'last_name' => clean_input($_POST['last_name'] ?? ''),
+            'contact' => clean_input($_POST['contact'] ?? ''),
+            'username' => clean_input($_POST['username'] ?? ''),
+        ];
         $newPassword = $_POST['new_password'] ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
 
-        if ($name === '' || $username === '') {
-            flash('error', 'Name and username are required.');
+        if ($data['first_name'] === '' || $data['last_name'] === '' || $data['username'] === '') {
+            flash('error', 'First name, last name, and username are required.');
             redirect('profile');
         }
 
-        if ($this->users->usernameExists($username, $id)) {
+        if ($this->users->usernameExists($data['username'], $id)) {
             flash('error', 'Username already exists.');
             redirect('profile');
         }
@@ -170,10 +212,13 @@ class UserController
             $this->logs->log($id, 'profile_password_update', 'Updated own account password.');
         }
 
-        $this->users->updateProfile($id, $name, $username);
+        $this->users->updateProfile($id, $data);
 
-        $_SESSION['user']['name'] = $name;
-        $_SESSION['user']['username'] = $username;
+        $updatedUser = $this->users->find($id);
+        if ($updatedUser !== null) {
+            $_SESSION['user']['name'] = $updatedUser['name'];
+            $_SESSION['user']['username'] = $updatedUser['username'];
+        }
 
         $this->logs->log($id, 'profile_update', 'Updated own account details.');
 

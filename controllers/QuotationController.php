@@ -20,7 +20,7 @@ class QuotationController
 
     public function index(): void
     {
-        require_auth();
+        require_module_access('quotations');
         $search = clean_input($_GET['search'] ?? '');
         $quotations = $this->quotations->recent(20, $search);
 
@@ -49,6 +49,13 @@ class QuotationController
             http_response_code(401);
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode(['error' => 'Unauthenticated']);
+            exit;
+        }
+
+        if (!can_access_module('quotations')) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['error' => 'Forbidden']);
             exit;
         }
 
@@ -149,7 +156,7 @@ class QuotationController
 
     public function store(): void
     {
-        require_auth();
+        require_module_access('quotations');
         verify_csrf();
 
         try {
@@ -184,7 +191,7 @@ class QuotationController
 
     public function edit(): void
     {
-        require_auth();
+        require_module_access('quotations');
 
         $id = (int) ($_GET['id'] ?? 0);
         $quotation = $this->quotations->find($id);
@@ -205,7 +212,7 @@ class QuotationController
 
     public function update(): void
     {
-        require_auth();
+        require_module_access('quotations');
         verify_csrf();
 
         $id = (int) ($_POST['id'] ?? 0);
@@ -243,7 +250,7 @@ class QuotationController
 
     public function delete(): void
     {
-        require_auth();
+        require_module_access('quotations');
         verify_csrf();
 
         $id = (int) ($_POST['id'] ?? 0);
@@ -268,7 +275,7 @@ class QuotationController
 
     public function view(): void
     {
-        require_auth();
+        require_module_access('quotations');
 
         $id = (int) ($_GET['id'] ?? 0);
         $quotation = $this->quotations->find($id);

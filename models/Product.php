@@ -30,7 +30,7 @@ class Product extends BaseModel
             $params['category_id'] = $categoryId;
         }
 
-        $sql .= " ORDER BY p.id DESC";
+        $sql .= " ORDER BY (p.stock_quantity <= " . (int) system_low_stock_threshold() . ") DESC, p.stock_quantity ASC, p.id DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
 
@@ -93,7 +93,7 @@ class Product extends BaseModel
             WHERE p.stock_quantity <= :threshold
             ORDER BY p.stock_quantity ASC, p.name ASC
         ");
-        $stmt->execute(['threshold' => LOW_STOCK_THRESHOLD]);
+        $stmt->execute(['threshold' => system_low_stock_threshold()]);
         return $stmt->fetchAll();
     }
 
@@ -198,6 +198,43 @@ class Product extends BaseModel
         ");
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function filteredMovements(?string $from, ?string $to, string $search = '', string $type = ''): array
+    {
+        $sql = "
+            SELECT sm.*, p.name AS product_name, u.name AS user_name
+            FROM stock_movements sm
+            JOIN products p ON p.id = sm.product_id
+            JOIN users u ON u.id = sm.user_id
+            WHERE 1=1
+        ";
+        $params = [];
+
+        if ($from) {
+            $sql .= " AND DATE(sm.created_at) >= :from_date";
+            $params['from_date'] = $from;
+        }
+        if ($to) {
+            $sql .= " AND DATE(sm.created_at) <= :to_date";
+            $params['to_date'] = $to;
+        }
+        if ($type === 'in' || $type === 'out') {
+            $sql .= " AND sm.movement_type = :type";
+            $params['type'] = $type;
+        }
+        if ($search !== '') {
+            $sql .= " AND (p.name LIKE :search OR u.name LIKE :search2 OR sm.remarks LIKE :search3)";
+            $term = '%' . $search . '%';
+            $params['search']  = $term;
+            $params['search2'] = $term;
+            $params['search3'] = $term;
+        }
+
+        $sql .= " ORDER BY sm.id DESC LIMIT 500";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll();
     }
 }
